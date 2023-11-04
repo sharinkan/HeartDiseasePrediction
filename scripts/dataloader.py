@@ -65,7 +65,9 @@ class PhonocardiogramByIDDataset():
             }
             
             audiosDetails[audioChannel] = {
-                "audio" : [librosa.load(file) for file in audiosFiles[audioChannel]["audio"]]
+                # Modify to None so it's not using the default, might take more computing time
+                # Please note that sr is likely 4000 anyways.
+                "audio" : [librosa.load(file, sr=None) for file in audiosFiles[audioChannel]["audio"]]
             }
             
         return audiosFiles, audiosDetails, mostAudible, rowContent
