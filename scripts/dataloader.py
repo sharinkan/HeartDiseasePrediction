@@ -1,11 +1,12 @@
 # I'm gonna start using a dataloader for audio files
 
 from torch.utils.data import Dataset, DataLoader
-from typing import Literal, Callable, Union, Tuple, Dict, Any
+from typing import Literal, Callable, Union, Tuple, Dict, Any, List
 from pathlib import Path
 from glob import glob
 import pandas as pd
 import librosa
+import wfdb
 
 
 class PhonocardiogramAudioDataset(Dataset): # for iterating
@@ -28,6 +29,31 @@ class PhonocardiogramAudioDataset(Dataset): # for iterating
         sample = self.files[index]
         sample = self.transform(sample) if self.transform else sample
         return sample
+    
+    
+def cardio_tsv_reader(tsv_file : str) -> List[Tuple[int, Tuple[float, float]]]:
+    heart_cycle = pd.read_csv(tsv_file, sep='\t', header=None)
+    
+    everything = [] # [ cycle, (start, end) ... ]
+    for _ ,items in heart_cycle.iterrows():
+        start, end, cycle_mark = items
+        cycle_mark = int(cycle_mark)
+        everything.append( (cycle_mark, (start, end)) )
+    
+    return everything
+
+def get_hea_info(hea_file : str) -> Tuple[float, float]:
+    record = wfdb.rdheader(hea_file[:-4])
+    duration = record.sig_len / record.fs  # Calculate duration in seconds
+    sample_rate = record.fs
+    return duration, sample_rate
+
+def get_txt_file(txt_file : str) -> str:
+    with open(txt_file, "r") as f:
+        result = f.read()
+    return result
+        
+    
     
 class PhonocardiogramByIDDataset():
     # For now "related id" is NOT considered
@@ -56,18 +82,22 @@ class PhonocardiogramByIDDataset():
         audiosDetails = {}
         # ['.hea', '.tsv', '.txt', '.wav']
         for audioChannel in audios:
-            glob_fn = lambda ext : glob(str(self.folderPath / f"{key}_{audioChannel}*.{ext}"))
+            sorted_glob_fn = lambda ext : sorted(glob(str(self.folderPath / f"{key}_{audioChannel}*.{ext}")))
             audiosFiles[audioChannel] = {
-                "header" : glob_fn("hea"),
-                "segment" : glob_fn("tsv"),
-                "text" : glob(str(self.folderPath / f"{key}*.txt")),
-                "audio" : glob_fn("wav")
+                "header" : sorted_glob_fn("hea"),
+                "segment" : sorted_glob_fn("tsv"),
+                "text" : sorted(glob(str(self.folderPath / f"{key}*.txt"))),
+                "audio" : sorted_glob_fn("wav")
             }
             
+            channelDetail = audiosFiles[audioChannel]
             audiosDetails[audioChannel] = {
                 # Modify to None so it's not using the default, might take more computing time
                 # Please note that sr is likely 4000 anyways.
-                "audio" : [librosa.load(file, sr=None) for file in audiosFiles[audioChannel]["audio"]]
+                "header" : [get_hea_info(hea_file) for hea_file in channelDetail["header"]],
+                "audio" : [librosa.load(file, sr=None) for file in channelDetail["audio"]],
+                "text" : [get_txt_file(txt_file) for txt_file in channelDetail["text"]],# for if you just want to read
+                "segment" : [cardio_tsv_reader(tsv_file) for tsv_file in channelDetail["segment"]],
             }
             
         return audiosFiles, audiosDetails, mostAudible, rowContent
