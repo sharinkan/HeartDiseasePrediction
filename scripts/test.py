@@ -58,6 +58,7 @@ def s2n_on_frequency_ranges(audio_data, highest_cutoff, lower_bound, step) -> di
 
 if __name__ == "__main__":
     import json
+    from tqdm import tqdm
     
     def as_array(audio_file : str) -> np.ndarray:
         return librosa.load(audio_file, sr=4000)[0]
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     
     s2ns_on_cutoff = {}
     
-    for audios in loader:
+    for audios in tqdm(loader):
         for audio in audios:
             ratios = s2n_on_frequency_ranges(audio, 2000, 200, 5)
             if not(ratios):
