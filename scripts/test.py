@@ -79,18 +79,25 @@ if __name__ == "__main__":
     for audios in tqdm(loader):
         for audio in audios:
             audio = np.abs(audio)
-            ratios = s2n_on_frequency_ranges(audio, 2000, 200, 100)
+            ratios = s2n_on_frequency_ranges(audio, 2000, 500, 20)
             if not(ratios):
                 print("Invalid sample? ?")
                 continue
             
-            if not(s2ns_on_cutoff):
-                s2ns_on_cutoff = ratios
-            else:
-                for cutoff, s2n_ratio in ratios.items():
-                    s2ns_on_cutoff[cutoff] = ( s2ns_on_cutoff[cutoff] + s2n_ratio ) / 2
+            for cutoff, s2n_ratio in ratios.items():
+                if not(s2ns_on_cutoff.get(cutoff)):
+                    s2ns_on_cutoff[cutoff] = []
+                s2ns_on_cutoff[cutoff].append(s2n_ratio)
+            
                     
 
     file = open("test.json", "w+")
+    file1 = open("test.stats.json", "w+")
+    
     json.dump(s2ns_on_cutoff, file)
+    json.dump({
+        cutoff : {"mean" : np.mean(ratios), "std" : np.std(ratios)} for cutoff, ratios in s2ns_on_cutoff.items()
+    }, file1)
+    
     file.close()
+    file1.close()
