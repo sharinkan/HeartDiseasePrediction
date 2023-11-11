@@ -50,7 +50,7 @@ def s2n_on_frequency_ranges(audio_data, highest_cutoff, lower_bound, step) -> di
     for cutoff in reverse_range(lower_bound, highest_cutoff, step):
         processed_sample = remove_high_frequencies(audio_data, 4000, cutoff).real
         s2n_ratio = s2n(processed_sample)
-        if not(s2n_ratio):
+        if np.isnan(s2n_ratio):
             return
         s2n_ratios[cutoff] = s2n_ratio
         
@@ -78,7 +78,8 @@ if __name__ == "__main__":
     
     for audios in tqdm(loader):
         for audio in audios:
-            ratios = s2n_on_frequency_ranges(audio, 2000, 200, 5)
+            audio = np.abs(audio)
+            ratios = s2n_on_frequency_ranges(audio, 2000, 200, 100)
             if not(ratios):
                 print("Invalid sample? ?")
                 continue
@@ -86,7 +87,7 @@ if __name__ == "__main__":
             if not(s2ns_on_cutoff):
                 s2ns_on_cutoff = ratios
             else:
-                for cutoff, s2n_ratio in ratios:
+                for cutoff, s2n_ratio in ratios.items():
                     s2ns_on_cutoff[cutoff] = ( s2ns_on_cutoff[cutoff] + s2n_ratio ) / 2
                     
 
