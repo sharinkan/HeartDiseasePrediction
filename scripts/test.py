@@ -56,6 +56,7 @@ def s2n_on_frequency_ranges(audio_data, highest_cutoff, lower_bound, step) -> di
         
     return s2n_ratios
 
+
 if __name__ == "__main__":
     import json
     from tqdm import tqdm
