@@ -4,8 +4,6 @@ import numpy as np
 from pathlib import Path
 import librosa
 
-from functools import singledispatch
-
 def remove_high_frequencies(audio_data, sample_rate, cutoff_frequency):
     
     audio_fft = np.fft.fft(audio_data)
@@ -60,21 +58,46 @@ def s2n_on_frequency_ranges(audio_data, highest_cutoff, lower_bound, step) -> di
 if __name__ == "__main__":
     import json
     from tqdm import tqdm
+    import librosa
+    from matplotlib import pyplot as plt
+    from segment import segment_audio
+    from dataloader import PhonocardiogramByIDDatasetOnlyResult
     
-    def as_array(audio_file : str) -> np.ndarray:
-        return librosa.load(audio_file, sr=4000)[0]
+    def trans(file, lookupDB : PhonocardiogramByIDDatasetOnlyResult):
+        to_segmentation = segment_audio(file, sr=4000,n_mels=100,win_length=100,hop_length=20,to_db=True)
+        is_abnormal = lookupDB[file]
+        
+        return to_segmentation, is_abnormal
     
     file = Path(".") / ".." / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
+    lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
     dset = PhonocardiogramAudioDataset(
         file / "training_data",
         ".wav",
         "MV", # most common
-        transform=as_array
+        transform=lambda f : trans(f, lookup)
     )
     
     loader = DataLoader(dset, batch_size=1, shuffle=False, collate_fn=lambda x : x)
+    for data in loader:
+        
+        mel_spectrogram, is_abnormal = data[0]  # Assuming each item in the loader is a tuple with the mel spectrogram
+        
+        plt.figure(figsize=(10, 4))
+        librosa.display.specshow(mel_spectrogram, x_axis='time', y_axis='mel', sr=4000, hop_length=20)
+        plt.colorbar(format='%+2.0f dB')
+        plt.title(f'Mel Spectrogram - Sample {is_abnormal=}')
+        plt.savefig(f'mel_spectrogram_sample_{is_abnormal=}.png')  # Save the figure as an image
+        plt.close()
+        
+        
+        # print(i[0].shape)
+        break
     
     
+    exit(0)
+    loader = DataLoader(dset, batch_size=1, shuffle=False, collate_fn=lambda x : x)
+    # Section 2
     s2ns_on_cutoff = {}
     
     for audios in tqdm(loader):

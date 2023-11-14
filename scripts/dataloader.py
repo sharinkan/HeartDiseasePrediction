@@ -7,6 +7,7 @@ from glob import glob
 import pandas as pd
 import librosa
 import wfdb
+import re, os
 
 
 class PhonocardiogramAudioDataset(Dataset): # for iterating
@@ -102,10 +103,33 @@ class PhonocardiogramByIDDataset():
             
         return audiosFiles, audiosDetails, mostAudible, rowContent
 
-
+class PhonocardiogramByIDDatasetOnlyResult(): # a faster version that only give the result
+    def __init__(
+        self,
+        csvFile : str,
+    ):
+        self.primaryKey = "Patient ID"
+        self.tableContent = pd.read_csv(csvFile)[[self.primaryKey, "Outcome"]]
+        
+    def __getitem__(self, key : Union[int, str]):
+        if isinstance(key, str): # assume is path
+            match = re.match(r'(\d+)', os.path.basename(key))
+            # for runtime, I won't do error check
+            key = int(match.group(1))
+            
+        rowContent = self.tableContent.loc[self.tableContent[self.primaryKey] == key]["Outcome"].iloc[0]
+        return rowContent == "Abnormal" # binary value
+    
+        
 if __name__ == "__main__":
     from time import time
     file = Path(".") / ".." / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
+    
+    y = PhonocardiogramByIDDatasetOnlyResult(str(file /  "training_data.csv"))
+    print(y["asd/assx/23625_PV.wav"])
+    print(y["asd/assx/49577_PV.wav"])
+    
+    exit()
     o = time()
     f = PhonocardiogramByIDDataset(
         str(file / "training_data.csv"),
