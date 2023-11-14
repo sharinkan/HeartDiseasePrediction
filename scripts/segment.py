@@ -31,6 +31,13 @@ def round_bounds(lower : int, upper : int, stop : int,  step : int, drop : Liter
     return (lower + drop_rate, upper + drop_rate, stop, step)
 
 
+def remove_high_frequencies(audio_data, sample_rate, cutoff_frequency):
+    audio_fft = np.fft.fft(audio_data)
+    fft_freqs = np.fft.fftfreq(audio_fft.size, 1 / sample_rate)
+    audio_fft[np.abs(fft_freqs) > cutoff_frequency] = 0
+    modified_audio = np.fft.ifft(audio_fft)
+    return modified_audio
+
 # Only use this
 def segment_audio(
         audio_file: str, 
@@ -62,10 +69,13 @@ def segment_audio(
         """
         sample, _ = librosa.load(
             audio_file, 
-            sr=4000, 
+            sr=sr, 
             offset=start_sample, 
             duration=(end_sample - start_sample) if end_sample else end_sample
         )
+        
+        if max_freq:
+            sample = remove_high_frequencies(sample, sr, max_freq).real
         
         mel_spec = librosa.feature.melspectrogram(
             y=sample,
@@ -75,10 +85,6 @@ def segment_audio(
             hop_length=hop_length
         )
         
-        if max_freq:
-            freq_mask = librosa.filters.mel(sr=sr, n_fft=2048, n_mels=n_mels, fmax=max_freq)
-            mel_spec = np.dot(freq_mask, mel_spec)
-            
         if to_db:
             mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
             

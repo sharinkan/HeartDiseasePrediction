@@ -63,8 +63,16 @@ if __name__ == "__main__":
     from segment import segment_audio
     from dataloader import PhonocardiogramByIDDatasetOnlyResult
     
+    max_freq_test = 2000
     def trans(file, lookupDB : PhonocardiogramByIDDatasetOnlyResult):
-        to_segmentation = segment_audio(file, sr=4000,n_mels=100,win_length=100,hop_length=20,to_db=True)
+        to_segmentation = segment_audio(
+            file, 
+            sr=4000,
+            n_mels=120,
+            win_length=100,
+            hop_length=20,
+            to_db=True,
+            max_freq=max_freq_test)
         is_abnormal = lookupDB[file]
         
         return to_segmentation, is_abnormal
@@ -84,7 +92,7 @@ if __name__ == "__main__":
         mel_spectrogram, is_abnormal = data[0]  # Assuming each item in the loader is a tuple with the mel spectrogram
         
         plt.figure(figsize=(10, 4))
-        librosa.display.specshow(mel_spectrogram, x_axis='time', y_axis='mel', sr=4000, hop_length=20)
+        librosa.display.specshow(mel_spectrogram, x_axis='time', y_axis='mel', sr=4000, hop_length=20, fmax=max_freq_test)
         plt.colorbar(format='%+2.0f dB')
         plt.title(f'Mel Spectrogram - Sample {is_abnormal=}')
         plt.savefig(f'mel_spectrogram_sample_{is_abnormal=}.png')  # Save the figure as an image
