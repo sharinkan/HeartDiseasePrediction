@@ -42,8 +42,8 @@ def remove_high_frequencies(audio_data, sample_rate, cutoff_frequency):
 def segment_audio(
         audio_file: str, 
         sr : int = 4000,
-        start_sample: int = 0, # NOT IN sec, should be int(sec * sr)
-        end_sample: int = None, 
+        start_sample: float = 0, # In Sec
+        end_sample: float = None, # In Sec
         max_freq: int = None,
         n_mels: int = None,
         win_length: int = 128, # (0,127)
@@ -56,8 +56,8 @@ def segment_audio(
         Parameters:
             audio_file (str): Path to the audio file.
             sr (int): Sampling rate.
-            start_sample (int): Start sample for segmentation.
-            end_sample (int): End sample for segmentation. If None, the entire audio is used.
+            start_sample (float): Start sample for segmentation.
+            end_sample (float): End sample for segmentation. If None, the entire audio is used.
             max_freq (int): Maximum frequency to retain in the mel spectrogram. If None, no cutoff.
             n_mels (int): Number of mel frequency bands. If None, use librosa's default.
             win_length (int): Size of the FFT window in samples.
@@ -71,7 +71,7 @@ def segment_audio(
             audio_file, 
             sr=sr, 
             offset=start_sample, 
-            duration=(end_sample - start_sample) if end_sample else end_sample
+            duration=end_sample
         )
         
         if max_freq:
