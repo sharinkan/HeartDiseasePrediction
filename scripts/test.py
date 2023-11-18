@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 from pathlib import Path
 import librosa
+import torch
 
 def remove_high_frequencies(audio_data, sample_rate, cutoff_frequency):
     
@@ -66,18 +67,22 @@ if __name__ == "__main__":
     max_freq_test = 2000
     def trans(file, lookupDB : PhonocardiogramByIDDatasetOnlyResult):
         to_segmentation = segment_audio(
-            file, 
+            file,
+            end_sample=4.8,
             sr=4000,
             n_mels=120,
             win_length=100,
             hop_length=20,
-            to_db=True,
-            max_freq=max_freq_test)
+            to_db=False,
+            max_freq=max_freq_test
+        )
         is_abnormal = lookupDB[file]
+        is_abnormal = np.eye(2)[int(is_abnormal)]
         
-        return to_segmentation, is_abnormal
+        return to_segmentation.reshape((1,*to_segmentation.shape)), is_abnormal
     
     file = Path(".") / ".." / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
+    
     lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
     dset = PhonocardiogramAudioDataset(
         file / "training_data",
@@ -86,26 +91,30 @@ if __name__ == "__main__":
         transform=lambda f : trans(f, lookup)
     )
     
-    loader = DataLoader(dset, batch_size=1, shuffle=False, collate_fn=lambda x : x)
-    for data in loader:
-        
-        mel_spectrogram, is_abnormal = data[0]  # Assuming each item in the loader is a tuple with the mel spectrogram
-        
-        plt.figure(figsize=(10, 4))
-        librosa.display.specshow(mel_spectrogram, x_axis='time', y_axis='mel', sr=4000, hop_length=20, fmax=max_freq_test)
-        plt.colorbar(format='%+2.0f dB')
-        plt.title(f'Mel Spectrogram - Sample {is_abnormal=}')
-        plt.savefig(f'mel_spectrogram_sample_{is_abnormal=}.png')  # Save the figure as an image
-        plt.close()
-        
-        
-        # print(i[0].shape)
-        break
+    train_size = int(0.8 * len(dset))
+    test_size = len(dset) - train_size
+    train_dataset, test_dataset = torch.utils.data.random_split(dset, [train_size, test_size])
+    
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)#, collate_fn=lambda x : x)
+    test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+    
+    
+    from model import test
+    
+    test(1, train_loader, test_loader)
+    
+    
+    
+    # for data in train_loader:
+    #     x, y = data
+    #     print(x)
+    #     print(y)
+    #     break
     
     
     exit(0)
     loader = DataLoader(dset, batch_size=1, shuffle=False, collate_fn=lambda x : x)
-    # Section 2
+    # Section 2 | testing s2n over different high frequency cuts
     s2ns_on_cutoff = {}
     
     for audios in tqdm(loader):
