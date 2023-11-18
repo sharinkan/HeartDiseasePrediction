@@ -5,6 +5,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim 
+from tqdm import tqdm
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Net(nn.Module):
     def __init__(self):
@@ -27,7 +31,7 @@ class Net(nn.Module):
     
 
 def test(epochs, train_loader, test_loader):
-    net = Net().float()
+    net = Net().to(device).float()
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
     
@@ -35,20 +39,19 @@ def test(epochs, train_loader, test_loader):
     for epoch in range(epochs):  # loop over the dataset multiple times
 
         running_loss = 0.0
-        for i, data in enumerate(train_loader):
+        print(f"Epoch = {epoch + 1}")
+        for i, data in tqdm(enumerate(train_loader)):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
             # Convert inputs and labels to Float
-            inputs = inputs.float()
-            labels = labels.float()
+            inputs = inputs.to(device).float()
+            labels = labels.to(device).float()
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            print("HELLO")
             outputs = net(inputs)
-            print(outputs, labels, "EEEM")
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()

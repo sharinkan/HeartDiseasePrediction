@@ -60,7 +60,7 @@ if __name__ == "__main__":
     import json
     from tqdm import tqdm
     import librosa
-    from matplotlib import pyplot as plt
+    # from matplotlib import pyplot as plt
     from segment import segment_audio
     from dataloader import PhonocardiogramByIDDatasetOnlyResult
     
