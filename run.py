@@ -43,12 +43,18 @@ if __name__ == "__main__":
 
     loader = DataLoader(
         dset, 
-        batch_size=len(dset), 
+        batch_size=8, 
         # collate_fn=lambda x : x,
     )
-    for i in loader:
-        X,y = i
-        
+    X = []
+    y = []
+    for i in tqdm(loader): # very slow 
+        X_i,y_i = i
+        X.append(X_i)
+        y.append(y_i)
+    
+    X = torch.cat(X, dim=0)
+    y = torch.cat(y, dim=0)
     pipeline(X,y)
     
     
