@@ -1,0 +1,12 @@
+torch
+requests
+tqdm
+pandas
+librosa
+wfdb
+numpy
+matplotlib
+seaborn
+torchaudio
+pydub
+noisereduce
