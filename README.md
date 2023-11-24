@@ -26,7 +26,9 @@ Dataset link: https://physionet.org/content/circor-heart-sound/1.0.3/
 ### Install dataset
 `python install.py`
 - downloading from https://physionet.org/static/published-projects/circor-heart-sound/the-circor-digiscope-phonocardiogram-dataset-1.0.3.zip
-#
+
+### Running results
+`python run.py`
 
 
 
