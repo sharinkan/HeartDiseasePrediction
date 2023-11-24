@@ -2,6 +2,9 @@
 # Feel free to add your own lines of code to handle further data manipulation (wrangling)
 # before feeding it to future ML models
 import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+import librosa
+import numpy as np
 
 
 
@@ -58,3 +61,62 @@ def one_hot_encoding(df : pd.DataFrame, cols: list):
     df_encoded = pd.get_dummies(data, dtype=int)
 
     return df_encoded
+
+
+def segment_audio(
+        audio_file: str, 
+        sr : int = 4000,
+        start_sample: float = 0, # In Sec
+        end_sample: float = None, # In Sec
+        max_freq: int = None,
+        n_mels: int = None,
+        win_length: int = 128, # (0,127)
+        hop_length: int = 20, # (0,127) , (20,147), ...
+        to_db : bool = False, # to decible 
+    ) -> np.ndarray:
+        """
+        Segments and extracts features from an audio file.
+
+        Parameters:
+            audio_file (str): Path to the audio file.
+            sr (int): Sampling rate.
+            start_sample (float): Start sample for segmentation.
+            end_sample (float): End sample for segmentation. If None, the entire audio is used.
+            max_freq (int): Maximum frequency to retain in the mel spectrogram. If None, no cutoff.
+            n_mels (int): Number of mel frequency bands. If None, use librosa's default.
+            win_length (int): Size of the FFT window in samples.
+            hop_length (int): Number of samples between successive frames.
+            to_db (bool): Whether to convert the spectrogram to decibels.
+
+        Returns:
+            np.ndarray: Mel spectrogram or decibel-scaled mel spectrogram.
+        """
+        sample, _ = librosa.load(
+            audio_file, 
+            sr=sr, 
+            offset=start_sample, 
+            duration=end_sample
+        )
+        
+        if max_freq:
+            sample = remove_high_frequencies(sample, sr, max_freq).real
+        
+        mel_spec = librosa.feature.melspectrogram(
+            y=sample,
+            sr=sr,
+            n_mels=n_mels,
+            win_length=win_length,
+            hop_length=hop_length
+        )
+        
+        if to_db:
+            mel_spec = librosa.power_to_db(mel_spec, ref=np.max)
+            
+        return mel_spec
+    
+#https://github.com/IliaZenkov/sklearn-audio-classification/blob/master/sklearn_audio_classification.ipynb
+def feature_mfcc(waveform, sample_rate=4000, n_mfcc=13):
+    # Compute the MFCCs for all STFT frames and get the mean of each column of the resulting matrix to create a feature array
+    # 40 filterbanks = 40 coefficients
+    mfc_coefficients=np.mean(librosa.feature.mfcc(y=waveform, sr=sample_rate, n_mfcc=n_mfcc).T, axis=0) 
+    return mfc_coefficients

@@ -1,4 +1,3 @@
-from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
@@ -12,7 +11,6 @@ def one_dim_x_train(
     ):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size, random_state=random_state)
-    
     acc_list, auc_list, cm_list = [],[],[]
     
     for model in models:
