@@ -101,7 +101,7 @@ if __name__ == "__main__":
     
     from model import test
     
-    test(1, train_loader, test_loader)
+    test(10, train_loader, test_loader)
     
     
     

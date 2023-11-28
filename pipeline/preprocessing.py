@@ -63,6 +63,14 @@ def one_hot_encoding(df : pd.DataFrame, cols: list):
     return df_encoded
 
 
+def remove_high_frequencies(audio_data, sample_rate, cutoff_frequency):
+    audio_fft = np.fft.fft(audio_data)
+    fft_freqs = np.fft.fftfreq(audio_fft.size, 1 / sample_rate)
+    audio_fft[np.abs(fft_freqs) > cutoff_frequency] = 0
+    modified_audio = np.fft.ifft(audio_fft)
+    return modified_audio
+
+
 def segment_audio(
         audio_file: str, 
         sr : int = 4000,

@@ -33,14 +33,13 @@ class Net(nn.Module):
 def test(epochs, train_loader, test_loader):
     net = Net().to(device).float()
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-    
+    optimizer = optim.SGD(net.parameters(), lr=0.005, momentum=0.9)
     
     for epoch in range(epochs):  # loop over the dataset multiple times
 
+        # Training
         running_loss = 0.0
-        print(f"Epoch = {epoch + 1}")
-        for i, data in tqdm(enumerate(train_loader)):
+        for i, data in tqdm(enumerate(train_loader), desc=f"Epoch = {epoch + 1}"):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
             # Convert inputs and labels to Float
@@ -57,8 +56,31 @@ def test(epochs, train_loader, test_loader):
             optimizer.step()
 
             # print statistics
-            running_loss += loss.item()
-            if i % 10 == 0:    # print every 10 mini-batches
-                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 10:.3f}')
-                running_loss = 0.0
+            # running_loss += loss.item()
+            # if i % 10 == 0:    # print every 10 mini-batches
+            #     print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 10:.3f}')
+            #     running_loss = 0.0
+
+        # Testing
+        net.eval()  # Set the model to evaluation mode
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for data in test_loader:
+                inputs, labels = data
+                inputs = inputs.to(device).float()
+                labels = labels.to(device).float()
+
+                outputs = net(inputs)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+
+                correct += (predicted == torch.argmax(labels, dim=1)).sum().item()
+
+
+        accuracy = correct / total
+        print(f'Epoch {epoch + 1}, Test Accuracy: {100 * accuracy:.2f}%')
+
+        net.train()  # Set the model back to training mode
+
     
