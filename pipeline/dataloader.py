@@ -1,13 +1,11 @@
-from torch.utils.data import Dataset, DataLoader
-from typing import Literal, Callable, Union, Tuple, Dict, Any, List
+from torch.utils.data import Dataset
+from typing import Literal, Callable, Union
 from pathlib import Path
 from glob import glob
 import pandas as pd
-import librosa
-import wfdb
 import re, os
 
-class PhonocardiogramAudioDataset(Dataset): # for iterating
+class PhonocardiogramAudioDataset(Dataset): # for iterating | for longer training process
     def __init__(
         self,
         folder : Path,
@@ -29,7 +27,7 @@ class PhonocardiogramAudioDataset(Dataset): # for iterating
         return sample
     
     
-class PhonocardiogramByIDDatasetOnlyResult(): # a faster version that only give the result
+class PhonocardiogramByIDDatasetOnlyResult(): # a faster version that only give the result | getting label on patient id
     def __init__(
         self,
         csvFile : str,

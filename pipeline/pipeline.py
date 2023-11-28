@@ -9,16 +9,20 @@ def one_dim_x_train(
         test_size: float, 
         random_state = None,
     ):
-
+    # test train split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size, random_state=random_state)
     acc_list, auc_list, cm_list = [],[],[]
     
     for model in models:
+        # Training Model
         model.fit(X_train, y_train)
+
+        # Eval
         y_pred = model.predict(X_test)
-        
+
+        # Computing stats
         fpr, tpr, _thresholds = metrics.roc_curve(y_test, y_pred)
-        
+
         acc_list.append(metrics.accuracy_score(y_test, y_pred))
         auc_list.append(round(metrics.auc(fpr, tpr), 2))
         cm_list.append(confusion_matrix(y_test, y_pred))

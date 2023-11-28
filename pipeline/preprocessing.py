@@ -128,3 +128,16 @@ def feature_mfcc(waveform, sample_rate=4000, n_mfcc=13):
     # 40 filterbanks = 40 coefficients
     mfc_coefficients=np.mean(librosa.feature.mfcc(y=waveform, sr=sample_rate, n_mfcc=n_mfcc).T, axis=0) 
     return mfc_coefficients
+
+def feature_chromagram(waveform, sample_rate=4000):
+    # STFT computed here explicitly; mel spectrogram and MFCC functions do this under the hood
+    stft_spectrogram=np.abs(librosa.stft(waveform))
+    # Produce the chromagram for all STFT frames and get the mean of each column of the resulting matrix to create a feature array
+    chromagram=np.mean(librosa.feature.chroma_stft(S=stft_spectrogram, sr=sample_rate).T,axis=0)
+    return chromagram
+
+def feature_melspectrogram(waveform, sample_rate=4000, n_mels=16):
+    # Produce the mel spectrogram for all STFT frames and get the mean of each column of the resulting matrix to create a feature array
+    # Using 8khz as upper frequency bound should be enough for most speech classification tasks
+    melspectrogram=np.mean(librosa.feature.melspectrogram(y=waveform, sr=sample_rate, n_mels=n_mels).T,axis=0)
+    return melspectrogram
