@@ -18,10 +18,7 @@ def grid_search_models(models, param_grids, X_train, y_train, cv=5):
 
 
 
-# Perform grid search for each model
-best_models = grid_search_models(models, param_grids, X_train, y_train)
 
-# Now best_models contains the best models after grid search
 
 
 def one_dim_x_train(
@@ -34,8 +31,10 @@ def one_dim_x_train(
     # test train split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size, random_state=random_state)
     acc_list, auc_list, cm_list = [],[],[]
-    
-    for model in models:
+
+    best_models = grid_search_models(models, param_grids, X_train, y_train)
+        
+    for model in best_models:
         # Training Model
         model.fit(X_train, y_train)
 
