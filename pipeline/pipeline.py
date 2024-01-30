@@ -2,6 +2,28 @@ from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
+from sklearn.model_selection import GridSearchCV
+
+def grid_search_models(models, param_grids, X_train, y_train, cv=5):
+    best_models = []
+
+    for model, param_grid in zip(models, param_grids):
+        grid_search = GridSearchCV(model, param_grid, cv=cv, scoring='accuracy')
+        grid_search.fit(X_train, y_train)
+        
+        best_model = grid_search.best_estimator_
+        best_models.append(best_model)
+    
+    return best_models
+
+
+
+# Perform grid search for each model
+best_models = grid_search_models(models, param_grids, X_train, y_train)
+
+# Now best_models contains the best models after grid search
+
+
 def one_dim_x_train(
         X, 
         y,
