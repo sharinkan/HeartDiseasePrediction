@@ -11,7 +11,7 @@ models = []
 
 models.append(LogisticRegression(solver='liblinear'))
 models.append(SVC())
-# models.append(KNeighborsClassifier())
+models.append(KNeighborsClassifier())
 models.append(DecisionTreeClassifier())
 models.append(RandomForestClassifier())
 models.append(GaussianNB())
