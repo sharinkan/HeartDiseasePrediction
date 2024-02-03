@@ -4,7 +4,7 @@ from pipeline.models import models
 from pipeline.pipeline import one_dim_x_train
 from pipeline.stats import view_cm, get_acc_auc_df, show_outcome_distrib
 from pipeline.preprocessing import * # fix later
-from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramByIDDataset
+from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramAugmentationTSV
 from typing import Tuple
 from tqdm import tqdm
 
@@ -58,17 +58,15 @@ if __name__ == "__main__":
     
     def beat_based_augmentation(
             data: np.ndarray, 
-            file : str, 
-            seg_tale : PhonocardiogramByIDDataset,
+            file : str,
+            seg_tale : PhonocardiogramAugmentationTSV,
             window_length : float = 5.
         ):
         
         match = re.match(r'(\d+)', os.path.basename(file))
         key = int(match.group(1))# for runtime, I won't do error check
         
-        _, content,_,_ = seg_tale[key]
-        
-        seg_content = content[os.path.basename(file).split(".")[0].split("_")[1]]["segment"][0]
+        seg_content = seg_tale[file]
         
         def find_start_end_tuple():
             first = seg_content[0]
@@ -83,14 +81,12 @@ if __name__ == "__main__":
         window_start = random.uniform(start, end - window_length)
         window_end = window_start + window_length
         
-        SAMPLE_RATE = 4000 # later
-        window_start, window_end = int(window_start * SAMPLE_RATE), int(window_end * SAMPLE_RATE)
+        window_start, window_end = int(window_start * 4000), int(window_end * 4000)
         
         return data[window_start : window_end]
         
         
-    segmentation_table = PhonocardiogramByIDDataset(str(file / "training_data.csv"), file / "training_data")
-    
+    segmentation_table = PhonocardiogramAugmentationTSV(file / "training_data")
         
     lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
     dset = PhonocardiogramAudioDataset(
@@ -98,10 +94,10 @@ if __name__ == "__main__":
         ".wav",
         "*", # Everything
         transform=lambda f : compose_feature_label(
-            f, 
+            f,
             lookup, 
             [feature_mfcc, feature_chromagram, feature_melspectrogram],
-            lambda ary_data : beat_based_augmentation(ary_data,f, segmentation_table)
+            lambda ary_data : beat_based_augmentation(ary_data, f, segmentation_table)
         )
     )
 
@@ -112,12 +108,11 @@ if __name__ == "__main__":
     )
     X = []
     y = []
-    z = 0
     for i in tqdm(loader): # very slow 
         X_i,y_i = i
         X.append(X_i)
         y.append(y_i)
-
+        
     
     # Creating 1 large matrix to train with classical models
     X = torch.cat(X, dim=0)
