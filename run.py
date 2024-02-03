@@ -62,10 +62,6 @@ if __name__ == "__main__":
             seg_tale : PhonocardiogramAugmentationTSV,
             window_length : float = 5.
         ):
-        
-        match = re.match(r'(\d+)', os.path.basename(file))
-        key = int(match.group(1))# for runtime, I won't do error check
-        
         seg_content = seg_tale[file]
         
         def find_start_end_tuple():
