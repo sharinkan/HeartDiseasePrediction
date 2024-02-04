@@ -194,7 +194,7 @@ def window_read_f(f_path:str, window_width:int, overlap_ratio:float, use_sec:boo
   assert n_sample_points.is_integer()
   n_sample_points = int(n_sample_points)
   if use_sec == True:
-      window_width = math.round(window_width * sampling_rate)
+       window_width = math.round(window_width * sampling_rate)
   start_last_window = n_sample_points - window_width
   if padding:
     if start_last_window < 0:
@@ -216,6 +216,6 @@ def window_read_f(f_path:str, window_width:int, overlap_ratio:float, use_sec:boo
       }
       for start_time in start_each
   ]
-  return signals, sampling_rate
+  return signals
 
 
