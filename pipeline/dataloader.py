@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset
-from typing import Literal, Callable, Union, List, Union, Tuple, List
+from typing import Literal, Callable, Union, Tuple, List
 from pathlib import Path
 from glob import glob
 import pandas as pd
