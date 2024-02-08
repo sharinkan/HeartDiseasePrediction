@@ -6,6 +6,15 @@ from pipeline.dataloader import PhonocardiogramAugmentationTSV
 import librosa
 from scipy.io.wavfile import write
 
+USE_MATLAB_ENGINE = True
+
+try:
+    from matlab.engine import start_matlab
+    ENG = start_matlab()
+except Exception as e:
+    print(e)
+    USE_MATLAB_ENGINE = False
+
 def remove_noise_from_edge(
         file : str,
         seg_tale : PhonocardiogramAugmentationTSV,
@@ -26,12 +35,15 @@ def remove_noise_from_edge(
     return data[start : end]
 
 
-
+def matlab_snr(file) -> bool:
+    y = ENG.audioread(file)
+    return ENG.snr(y)
 
 ASSET_FOLDER = Path("assets") / "the-circor-digiscope-phonocardiogram-dataset-1.0.3" 
 TRAINING_FOLDER = ASSET_FOLDER / "training_data"
 CLEAR_DATA_FOLDER = ASSET_FOLDER / "clear_training_data"
 SAMPLE_RATE = 4000
+SNR_THRESHOLD = 1 # ??
 assert TRAINING_FOLDER.exists() , "Training Data Not Found"
 
 if not(CLEAR_DATA_FOLDER.exists()):
@@ -42,12 +54,21 @@ segmentation_table = PhonocardiogramAugmentationTSV(TRAINING_FOLDER)
 
 for wav_file in tqdm( glob( str(TRAINING_FOLDER / "*.wav") ) ):
     
+    if USE_MATLAB_ENGINE:
+        if matlab_snr(wav_file) < SNR_THRESHOLD:
+            print("Failed SNR, removing")
+            continue
+    
     clear_data = remove_noise_from_edge(wav_file, segmentation_table)
     if len(clear_data) == 0:
         print(f"file : {wav_file} is invalid due to zero length after removing noise")
+        continue
         
     wav_name = Path(wav_file).name
     clear_data_file = CLEAR_DATA_FOLDER / wav_name
+    
+    if Path(clear_data).exists():
+        Path(clear_data).unlink()
     
     write(str(clear_data_file), SAMPLE_RATE , clear_data)
     
