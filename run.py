@@ -7,7 +7,7 @@ from pipeline.preprocessing import * # fix later
 from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramAugmentationTSV
 from tqdm import tqdm
 
-from pipeline.utils import compose_feature_label, beat_based_augmentation, energy_band_augmentation_random_win
+from pipeline.utils import compose_feature_label, audio_random_windowing, energy_band_augmentation_random_win
 
 def pipeline(X,y):
     # To verify if there's potential need for balancing the dataset
@@ -37,23 +37,23 @@ if __name__ == "__main__":
     # Training on actual patient audio files
     segmentation_table = PhonocardiogramAugmentationTSV(file / "training_data")
     
-    def augmentation(data, file, seg_table, sr=4000, window_length_hz=200):
+    def augmentation(data, sr=4000, window_length_hz=200, window_len_sec =5.):
         x = energy_band_augmentation_random_win(data, sr=sr, window_hz_length=window_length_hz)
         x = np.fft.ifft(x).real
-        x = beat_based_augmentation(x, file, seg_table)
+        x = audio_random_windowing(x, window_len_sec)
         
         return x
         
     lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
     dset = PhonocardiogramAudioDataset(
-        file / "training_data",
+        file / "clear_training_data",
         ".wav",
         "*", # Everything
         transform=lambda f : compose_feature_label(
             f,
             lookup, 
             [feature_mfcc, feature_chromagram, feature_melspectrogram],
-            lambda ary_data : augmentation(ary_data, f, segmentation_table, 4000,200)
+            lambda ary_data : augmentation(ary_data,4000,200,5.)
         )
     )
 
@@ -64,10 +64,17 @@ if __name__ == "__main__":
     )
     X = []
     y = []
+    
+    z = 0
     for i in tqdm(loader): # very slow 
         X_i,y_i = i
         X.append(X_i)
         y.append(y_i)
+        
+        z += 1
+        if z > 10:
+            break
+        
     
     # Creating 1 large matrix to train with classical models
     X = torch.cat(X, dim=0)

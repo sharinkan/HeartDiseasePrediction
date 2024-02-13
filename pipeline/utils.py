@@ -52,6 +52,14 @@ def beat_based_augmentation(
 #         yield copy
 #     return
 
+def audio_random_windowing(audio : np.ndarray, window_length_sec : float = 5.) -> np.ndarray:
+    window_start, window_end = random_windowing(0, len(audio), window_length_sec * 4000)
+    window_start, window_end = int(window_start), int(window_end)
+    
+    return audio[window_start : window_end]
+
+    
+
 def random_windowing(start, end, length):
     length = min(end - start , length)
     
@@ -113,7 +121,7 @@ if __name__ == "__main__":
 
 
     audio_data, sampling_rate = librosa.load(
-        "/Users/weijiechen/Desktop/git_ws/HeartDiseasePrediction/assets/the-circor-digiscope-phonocardiogram-dataset-1.0.3/training_data/85334_MV.wav",
+        "assets/the-circor-digiscope-phonocardiogram-dataset-1.0.3/training_data/85334_MV.wav",
         sr=None,
     )
 
