@@ -31,26 +31,34 @@ def beat_based_augmentation(
     
     return data[window_start : window_end]
 
-# def energy_band_augmentation(
-#     audio_data: np.ndarray, 
-#     sr : int, 
-#     window_hz_length: int, 
-#     window_hz_step: int, 
-#     window_hz_range: tuple
-# ) -> Iterable:
+def energy_band_augmentation(
+    audio_data: np.ndarray, 
+    sr : int, 
+    window_hz_length: int, 
+    window_hz_step: int, 
+    window_hz_range: tuple
+) -> Iterable:
     
-#     fourier_transform = np.fft.fft(audio_data)
-#     frequencies = np.fft.fftfreq(len(fourier_transform), 1 / sr) 
+    fourier_transform = np.fft.fft(audio_data)
+    frequencies = np.fft.fftfreq(len(fourier_transform), 1 / sr) 
     
-#     # Steps to extract the freq range of the audios
-#     abs_freq = np.abs(frequencies)
-#     win_start, win_end = window_hz_range
+    # Steps to extract the freq range of the audios
+    abs_freq = np.abs(frequencies)
+    win_start, win_end = window_hz_range
     
-#     for start in range(win_start, win_end - window_hz_step + 1, window_hz_step):
-#         copy = fourier_transform.copy()
-#         copy[ ~((abs_freq > start) & (abs_freq < (start + window_hz_length))) ] = 0
-#         yield copy
-#     return
+    for start in range(win_start, win_end - window_hz_step + 1, window_hz_step):
+        copy = fourier_transform.copy()
+        copy[ ~((abs_freq > start) & (abs_freq < (start + window_hz_length))) ] = 0
+        yield copy
+    return
+
+    
+def sliding_window_iter(start: int, end: int, length: int, overlap: float = 0.4):
+    step = int((1 - overlap) * length)
+    for window_start in range(start, end - length + 1, step):
+        yield window_start, window_start + length
+    return
+
 
 def audio_random_windowing(audio : np.ndarray, window_length_sec : float = 5.) -> np.ndarray:
     window_start, window_end = random_windowing(0, len(audio), window_length_sec * 4000)
@@ -58,7 +66,7 @@ def audio_random_windowing(audio : np.ndarray, window_length_sec : float = 5.) -
     
     return audio[window_start : window_end]
 
-    
+
 
 def random_windowing(start, end, length):
     length = min(end - start , length)
@@ -125,6 +133,6 @@ if __name__ == "__main__":
         sr=None,
     )
 
-    modified_freq = energy_band_augmentation_random_win(audio_data, sampling_rate, 200)
+    modified_freq = energy_band_augmentation_random_win(audio_data, sampling_rate, 4000)
     modified_audio = np.fft.ifft(modified_freq).real
     display_fft(modified_audio, sampling_rate)

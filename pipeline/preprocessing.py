@@ -5,7 +5,8 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 import librosa
 import numpy as np
-
+from scipy import signal
+from .utils import sliding_window_iter
 
 
 def data_wrangling(df : pd.DataFrame):
@@ -141,3 +142,36 @@ def feature_melspectrogram(waveform, sample_rate=4000, n_mels=16):
     # Using 8khz as upper frequency bound should be enough for most speech classification tasks
     melspectrogram=np.mean(librosa.feature.melspectrogram(y=waveform, sr=sample_rate, n_mels=n_mels).T,axis=0)
     return melspectrogram
+
+
+
+def bandpower(x, fs, fmin, fmax):
+    f, Pxx = signal.periodogram(x, fs=fs)
+    ind_min = np.argmax(f > fmin) - 1
+    ind_max = np.argmax(f > fmax) - 1
+    return np.trapz(Pxx[ind_min: ind_max], f[ind_min: ind_max])
+
+def bandpower_struct(x, fs):
+    f, Pxx = signal.periodogram(x, fs=fs)
+    
+    def bandpower(fmin, fmax):
+        ind_min = np.argmax(f > fmin) - 1
+        ind_max = np.argmax(f > fmax) - 1
+        return np.trapz(Pxx[ind_min: ind_max], f[ind_min: ind_max])
+    return bandpower
+        
+
+
+# band power feature
+def feature_bandpower_struct(sample_rate=4000, interval=200, overlap_percentage=0.7):
+    freq_windows = list(sliding_window_iter(0, sample_rate//2, interval,overlap_percentage))
+    
+    def feature_bandpower(waveform):
+        bandpower_func = bandpower_struct(waveform, fs=sample_rate//2)
+        features = []
+        for win_start, win_end in freq_windows:
+            features.append(bandpower_func(win_start, win_end))
+            
+        return features
+    
+    return feature_bandpower

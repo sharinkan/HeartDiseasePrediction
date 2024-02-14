@@ -38,10 +38,12 @@ if __name__ == "__main__":
     segmentation_table = PhonocardiogramAugmentationTSV(file / "training_data")
     
     def augmentation(data, sr=4000, window_length_hz=200, window_len_sec =5.):
-        x = energy_band_augmentation_random_win(data, sr=sr, window_hz_length=window_length_hz)
-        x = np.fft.ifft(x).real
-        x = audio_random_windowing(x, window_len_sec)
+        # This augmentation WILL conflict with new feature of frequency based extraction. ->
+        x = data
+        # x = energy_band_augmentation_random_win(x, sr=sr, window_hz_length=window_length_hz)
+        # x = np.fft.ifft(x).real
         
+        x = audio_random_windowing(x, window_len_sec)
         return x
         
     lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
@@ -52,7 +54,7 @@ if __name__ == "__main__":
         transform=lambda f : compose_feature_label(
             f,
             lookup, 
-            [feature_mfcc, feature_chromagram, feature_melspectrogram],
+            [feature_mfcc, feature_chromagram, feature_melspectrogram, feature_bandpower_struct(4000,200,0.7)],
             lambda ary_data : augmentation(ary_data,4000,200,5.)
         )
     )
@@ -65,17 +67,11 @@ if __name__ == "__main__":
     X = []
     y = []
     
-    z = 0
     for i in tqdm(loader): # very slow 
         X_i,y_i = i
         X.append(X_i)
         y.append(y_i)
         
-        z += 1
-        if z > 10:
-            break
-        
-    
     # Creating 1 large matrix to train with classical models
     X = torch.cat(X, dim=0)
     y = torch.cat(y, dim=0)
