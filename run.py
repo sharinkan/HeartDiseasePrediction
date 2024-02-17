@@ -4,9 +4,10 @@ from pipeline.models import models
 from pipeline.pipeline import one_dim_x_train
 from pipeline.stats import view_cm, get_acc_auc_df, show_outcome_distrib
 from pipeline.preprocessing import * # fix later
-from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult
-
+from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramAugmentationTSV
 from tqdm import tqdm
+
+from pipeline.utils import compose_feature_label, audio_random_windowing, energy_band_augmentation_random_win
 
 def pipeline(X,y):
     # To verify if there's potential need for balancing the dataset
@@ -31,44 +32,46 @@ if __name__ == "__main__":
     # X = one_hot_encoding(model_df, ['Sex', 'Murmur', 'Age', 'Systolic murmur quality', 'Systolic murmur pitch',
     #                     'Systolic murmur grading', 'Systolic murmur shape', 'Systolic murmur timing', 'Most audible location'
     #                     ])
-    
     # y = model_df['Outcome']
 
-
-
     # Training on actual patient audio files
-
-    def compose_feature_label(file, lookup_table, feature_fns):
-        # assume feature_fn will return 1xN array
-        audio_ary, _ = librosa.load(file)
-        features = np.array([])
-
-        for feature_fn in feature_fns:
-            features = np.concatenate( (features, feature_fn(audio_ary)), axis=0)
-
-        return features, int(lookup_table[file])
-
+    segmentation_table = PhonocardiogramAugmentationTSV(file / "training_data")
+    
+    def augmentation(data, sr=4000, window_length_hz=200, window_len_sec =5.):
+        # This augmentation WILL conflict with new feature of frequency based extraction. ->
+        x = data
+        # x = energy_band_augmentation_random_win(x, sr=sr, window_hz_length=window_length_hz)
+        # x = np.fft.ifft(x).real
+        
+        x = audio_random_windowing(x, window_len_sec)
+        return x
         
     lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
     dset = PhonocardiogramAudioDataset(
-        file / "training_data",
+        file / "clear_training_data",
         ".wav",
         "*", # Everything
-        transform=lambda f : compose_feature_label(f, lookup, [feature_mfcc, feature_chromagram, feature_melspectrogram])
+        transform=lambda f : compose_feature_label(
+            f,
+            lookup, 
+            [feature_mfcc, feature_chromagram, feature_melspectrogram, feature_bandpower_struct(4000,200,0.7)],
+            lambda ary_data : augmentation(ary_data,4000,200,5.)
+        )
     )
 
     loader = DataLoader(
-        dset, 
-        batch_size=8, 
+        dset,
+        batch_size=1,
         # collate_fn=lambda x : x,
     )
     X = []
     y = []
+    
     for i in tqdm(loader): # very slow 
         X_i,y_i = i
         X.append(X_i)
         y.append(y_i)
-    
+        
     # Creating 1 large matrix to train with classical models
     X = torch.cat(X, dim=0)
     y = torch.cat(y, dim=0)
