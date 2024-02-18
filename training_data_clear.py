@@ -12,7 +12,7 @@ try:
     from matlab.engine import start_matlab
     ENG = start_matlab()
 except Exception as e:
-    print(e)
+    print(e, "MatLab not installed")
     USE_MATLAB_ENGINE = False
 
 def remove_noise_from_edge(
@@ -67,8 +67,8 @@ for wav_file in tqdm( glob( str(TRAINING_FOLDER / "*.wav") ) ):
     wav_name = Path(wav_file).name
     clear_data_file = CLEAR_DATA_FOLDER / wav_name
     
-    if Path(clear_data).exists():
-        Path(clear_data).unlink()
+    if Path(clear_data_file).exists():
+        Path(clear_data_file).unlink()
     
     write(str(clear_data_file), SAMPLE_RATE , clear_data)
     
