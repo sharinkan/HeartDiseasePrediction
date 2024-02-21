@@ -11,6 +11,7 @@ def one_dim_x_train(
     ):
     # test train split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size, random_state=random_state)
+    print(sum(y_train), len(y_train), sum(y_test), len(y_test))
     acc_list, auc_list, cm_list = [],[],[]
     
     for model in models:
