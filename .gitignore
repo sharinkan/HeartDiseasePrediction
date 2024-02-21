@@ -137,3 +137,7 @@ dmypy.json
 
 # Dataset
 assets/*dataset*
+
+# Saved features, models
+assets/feature.csv
+models
