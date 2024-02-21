@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset
-from typing import Literal, Callable, Union
+from typing import Literal, Callable, Union, Tuple, List
 from pathlib import Path
 from glob import glob
 import pandas as pd
@@ -9,8 +9,8 @@ class PhonocardiogramAudioDataset(Dataset): # for iterating | for longer trainin
     def __init__(
         self,
         folder : Path,
-        extension : Literal['.hea', '.tsv', '.txt', '.wav', "*"], 
-        channel : Literal['AV', 'TV', 'MV', 'PV', 'Phc', "*"],
+        extension : Literal['.hea', '.tsv', '.txt', '.wav', "*"] = ".wav", 
+        channel : Literal['AV', 'TV', 'MV', 'PV', 'Phc', "*"] = "*",
         transform: Union[Callable, None] = None,
     ):
         
@@ -44,3 +44,21 @@ class PhonocardiogramByIDDatasetOnlyResult(): # a faster version that only give 
         rowContent = self.tableContent.loc[self.tableContent[self.primaryKey] == key]["Outcome"].iloc[0]
         return rowContent == "Abnormal" # binary value
     
+
+def cardio_tsv_reader(tsv_file : str) -> List[Tuple[int, Tuple[float, float]]]:
+    heart_cycle = pd.read_csv(tsv_file, sep='\t', header=None)
+    
+    everything = [] # [ cycle, (start, end) ... ]
+    for _ ,items in heart_cycle.iterrows():
+        start, end, cycle_mark = items
+        cycle_mark = int(cycle_mark)
+        everything.append( (cycle_mark, (start, end)) )
+    return everything
+
+class PhonocardiogramAugmentationTSV():
+    def __init__(self, training_folder : str):
+        self.folder = Path(training_folder)
+        
+    def __getitem__(self, file_name : str):
+        search_tsv = self.folder / (os.path.splitext(os.path.basename(file_name))[0] + ".tsv")
+        return cardio_tsv_reader(search_tsv)

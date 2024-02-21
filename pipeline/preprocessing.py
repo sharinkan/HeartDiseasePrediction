@@ -127,7 +127,7 @@ def segment_audio(
         return mel_spec
     
 #https://github.com/IliaZenkov/sklearn-audio-classification/blob/master/sklearn_audio_classification.ipynb
-def feature_mfcc(waveform, sample_rate=4000, n_mfcc=13):
+def feature_mfcc(waveform, sample_rate=4000, n_mfcc=42):
     # Compute the MFCCs for all STFT frames and get the mean of each column of the resulting matrix to create a feature array
     # 40 filterbanks = 40 coefficients
     mfc_coefficients=np.mean(librosa.feature.mfcc(y=waveform, sr=sample_rate, n_mfcc=n_mfcc).T, axis=0) 

@@ -14,8 +14,8 @@ def pipeline(X,y):
     acc_list, auc_list, cm_list = one_dim_x_train(X, y, models=models, param_grids=param_grids, test_size=0.2, random_state=0)
     view_cm(models, cm_list)
     
-    my_df = get_acc_auc_df(models, acc_list, auc_list)
-    print(my_df)
+    # my_df = get_acc_auc_df(models, acc_list, auc_list)
+    # print(my_df)
     
     
 if __name__ == "__main__":
