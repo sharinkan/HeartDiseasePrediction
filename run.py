@@ -1,7 +1,7 @@
 # Should use cli options to run different things
 
 from pipeline.models import models, param_grids
-from pipeline.pipeline import one_dim_x_train, grid_search_models
+from pipeline.pipeline import one_dim_x_train
 from pipeline.stats import view_cm, get_acc_auc_df, show_outcome_distrib
 from pipeline.preprocessing import * # fix later
 from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult

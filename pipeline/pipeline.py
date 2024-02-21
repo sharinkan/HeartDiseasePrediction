@@ -16,11 +16,6 @@ def grid_search_models(models, param_grids, X_train, y_train, cv=5):
     
     return best_models
 
-
-
-
-
-
 def one_dim_x_train(
         X, 
         y,
@@ -48,5 +43,9 @@ def one_dim_x_train(
         acc_list.append(metrics.accuracy_score(y_test, y_pred))
         auc_list.append(round(metrics.auc(fpr, tpr), 2))
         cm_list.append(confusion_matrix(y_test, y_pred))
+    print(best_models)
+    print(acc_list)
+    print(auc_list)
+    print(cm_list) 
         
     return acc_list, auc_list, cm_list

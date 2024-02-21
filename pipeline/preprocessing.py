@@ -5,6 +5,10 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 import librosa
 import numpy as np
+import opensmile
+import audiofile
+import os
+import math
 
 
 
@@ -141,3 +145,75 @@ def feature_melspectrogram(waveform, sample_rate=4000, n_mels=16):
     # Using 8khz as upper frequency bound should be enough for most speech classification tasks
     melspectrogram=np.mean(librosa.feature.melspectrogram(y=waveform, sr=sample_rate, n_mels=n_mels).T,axis=0)
     return melspectrogram
+
+def feature_opensmile(waveform: np.ndarray, sample_rate:int=4000, feature_set=opensmile.FeatureSet.eGeMAPSv02, short:bool=False) -> pd.DataFrame:
+    """
+    Calculate the opensmile features for each 2 second. Step = 1 sec. there are 25 features in total.
+    If the input waveform is x seconds, then the output DataFrame will be x rowx * 25 columns.
+    Ref for eGeMAPSv02: https://sail.usc.edu/publications/files/eyben-preprinttaffc-2015.pdf
+    """
+    smile = opensmile.Smile(
+        feature_set=feature_set,
+        feature_level=opensmile.FeatureLevel.LowLevelDescriptors
+    )
+    features_df = smile.process_signal(
+        waveform,
+        sample_rate
+    )
+    if not short:
+        return features_df
+    else:
+        return features_df[[ # use this 
+            'F3frequency_sma3nz',
+            'F3bandwidth_sma3nz',
+            'F2frequency_sma3nz',
+            'F2bandwidth_sma3nz',
+            'F1frequency_sma3nz',
+            'F1bandwidth_sma3nz',
+            'F3amplitudeLogRelF0_sma3nz',
+            'F1amplitudeLogRelF0_sma3nz',
+            'F2amplitudeLogRelF0_sma3nz',
+            'logRelF0-H1-A3_sma3nz'
+        ]]
+
+def window_read_f(f_path:str, window_width:int, overlap_ratio:float, use_sec:bool=False, padding:bool=False):
+  """
+  Read WAV file into several samples by windowing
+  f_path: path of the WAV file.
+  window_width: number of data points in each window.
+  overlap_ratio: if you give 2 as window_width and 0.5 as overlap_ratio, then the \
+  first window will include the 1st and 2nd data points, and the second window will \
+  include the 3nd data points and the 3rd one. So on...
+  use_sec: If it is set as True, the unit for window width will be 1 second instead of 1 data point.
+  padding: padding is required if the window width is larger than the sample size in the provided file.
+  """
+  assert os.path.exists(f_path)
+  assert 0 < overlap_ratio < 1
+  sampling_rate = audiofile.sampling_rate(f_path)
+  n_sample_points = sampling_rate * audiofile.duration(f_path)
+  assert n_sample_points.is_integer()
+  n_sample_points = int(n_sample_points)
+  if use_sec == True:
+       window_width = math.round(window_width * sampling_rate)
+  start_last_window = n_sample_points - window_width
+  if padding:
+    if start_last_window < 0:
+        start_last_window = 0
+    else:
+        raise ValueError(f"Window width larger than the sample size. Needs Padding. File:{f_path}")
+  step = math.round(window_width * (1 - overlap_ratio))
+  start_each = list(range(0, start_last_window, step))
+  start_each.append(start_last_window)
+  signals = [
+      {
+          "signal": audiofile.read(
+              f_path,
+              offset=start_time / sampling_rate,
+              duration=window_width / sampling_rate,
+              always_2d=False
+          )[0],
+          "start_time": start_time
+      }
+      for start_time in start_each
+  ]
+  return signals
