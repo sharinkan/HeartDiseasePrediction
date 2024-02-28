@@ -13,7 +13,7 @@ def pipeline(X,y):
     # To verify if there's potential need for balancing the dataset
     # show_outcome_distrib(y) 
     acc_list, auc_list, cm_list = one_dim_x_train(X, y, models=models,test_size=0.1, random_state=0)
-    view_cm(models, cm_list)
+    # view_cm(models, cm_list)
     
     my_df = get_acc_auc_df(models, acc_list, auc_list)
     print(my_df)
@@ -24,6 +24,8 @@ if __name__ == "__main__":
     from torch.utils.data import DataLoader
     import torch
     import re
+
+    from sklearn.decomposition import PCA
     
     file = Path(".") / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
     # Training On CSV data
@@ -57,7 +59,7 @@ if __name__ == "__main__":
         # x = energy_band_augmentation_random_win(x, sr=sr, window_hz_length=window_length_hz)
         # x = np.fft.ifft(x).real
         
-        x = audio_random_windowing(x, window_len_sec)
+        # x = audio_random_windowing(x, window_len_sec)
         return x
     
 
@@ -77,30 +79,35 @@ if __name__ == "__main__":
 
     features_fn = [
         feature_mfcc,
-        feature_chromagram, 
-        feature_melspectrogram,
-        feature_bandpower_struct(4000,200,0.7),
+        # feature_chromagram, 
+        # feature_melspectrogram,
+        # feature_bandpower_struct(4000,200,0.7),
     ]
-    random.seed(None)
-    features_fn = random.choices(features_fn, k = 2,)
+    # random.seed(None)
+    # features_fn = random.choices(features_fn, k = 2,)
 
     print([f.__qualname__ for f in features_fn])
         
     lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
+
+
     dset = PhonocardiogramAudioDataset(
         file / "clear_training_data",
         ".wav",
         "*", # Everything
-        transform=lambda f : compose_with_csv(f, compose_feature_label(
+        transform=lambda f : compose_feature_label(
+        # transform=lambda f : compose_with_csv(f, compose_feature_label(
             f,
             lookup, 
             features_fn,
-            lambda ary_data : augmentation(ary_data,4000,200,3.))
+            lambda ary_data : remove_high_frequencies(augmentation(ary_data,4000,200,3.), sample_rate=4000,cutoff_frequency=450).real
+            # )
         ),
         balancing=True,
         csvfile=str(file / "training_data.csv"),
         shuffle=True
     )
+
 
     loader = DataLoader(
         dset,
@@ -110,18 +117,41 @@ if __name__ == "__main__":
     )
     X = []
     y = []
+
+    n_components = 5
+    
     
     for resample in range(BATCHING := 1):
         for i in tqdm(loader): # very slow 
             X_i,y_i = i
             X.append(X_i)
             y.append(y_i)
+
+
         
     # Creating 1 large matrix to train with classical models
     X = torch.cat(X, dim=0)
     y = torch.cat(y, dim=0)
 
+    # CSV_PORTION = X[:, -30:]
+    # FEAT = X[:, :-30]
+    
+    # pca = PCA(n_components=n_components)
+    # data_pca = pca.fit_transform(FEAT)
+
+    # combined_array = np.concatenate((data_pca, CSV_PORTION),axis=1)
+
+    # # Training Pipeline
+    # pipeline(combined_array,y)
+
+        
+    pca = PCA(n_components=n_components)
+    data_pca = pca.fit_transform(X)
+
+    combined_array = np.concatenate((data_pca, CSV_PORTION),axis=1)
+
     # Training Pipeline
-    pipeline(X,y)
+    pipeline(combined_array,y)
+
     
     

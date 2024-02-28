@@ -30,7 +30,6 @@ class PhonocardiogramAudioDataset(Dataset): # for iterating | for longer trainin
             totalPositive = sum(allResults)
             totalNegative = len(allResults) - totalPositive
             totalMax = min(totalPositive, totalNegative)
-            print(totalMax, totalNegative, totalPositive)
 
             posCounter = 0
             negCounter = 0
