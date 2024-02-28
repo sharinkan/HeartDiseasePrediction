@@ -59,7 +59,7 @@ if __name__ == "__main__":
         # x = energy_band_augmentation_random_win(x, sr=sr, window_hz_length=window_length_hz)
         # x = np.fft.ifft(x).real
         
-        # x = audio_random_windowing(x, window_len_sec)
+        x = audio_random_windowing(x, window_len_sec)
         return x
     
 
@@ -75,7 +75,6 @@ if __name__ == "__main__":
 
         return np.concatenate([feature, csv_feat], axis=0), y
 
-    import random
 
     features_fn = [
         feature_mfcc,
@@ -83,8 +82,6 @@ if __name__ == "__main__":
         # feature_melspectrogram,
         # feature_bandpower_struct(4000,200,0.7),
     ]
-    # random.seed(None)
-    # features_fn = random.choices(features_fn, k = 2,)
 
     print([f.__qualname__ for f in features_fn])
         
@@ -96,12 +93,10 @@ if __name__ == "__main__":
         ".wav",
         "*", # Everything
         transform=lambda f : compose_feature_label(
-        # transform=lambda f : compose_with_csv(f, compose_feature_label(
             f,
             lookup, 
             features_fn,
             lambda ary_data : remove_high_frequencies(augmentation(ary_data,4000,200,3.), sample_rate=4000,cutoff_frequency=450).real
-            # )
         ),
         balancing=True,
         csvfile=str(file / "training_data.csv"),
@@ -118,9 +113,6 @@ if __name__ == "__main__":
     X = []
     y = []
 
-    n_components = 5
-    
-    
     for resample in range(BATCHING := 1):
         for i in tqdm(loader): # very slow 
             X_i,y_i = i
@@ -128,30 +120,10 @@ if __name__ == "__main__":
             y.append(y_i)
 
 
-        
     # Creating 1 large matrix to train with classical models
     X = torch.cat(X, dim=0)
     y = torch.cat(y, dim=0)
 
-    # CSV_PORTION = X[:, -30:]
-    # FEAT = X[:, :-30]
     
-    # pca = PCA(n_components=n_components)
-    # data_pca = pca.fit_transform(FEAT)
-
-    # combined_array = np.concatenate((data_pca, CSV_PORTION),axis=1)
-
-    # # Training Pipeline
-    # pipeline(combined_array,y)
-
-        
-    pca = PCA(n_components=n_components)
-    data_pca = pca.fit_transform(X)
-
-    combined_array = np.concatenate((data_pca, CSV_PORTION),axis=1)
-
     # Training Pipeline
-    pipeline(combined_array,y)
-
-    
-    
+    pipeline(X,y)
