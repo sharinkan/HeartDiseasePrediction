@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, Literal
 try:
     from .dataloader import PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramAugmentationTSV
 except ImportError:
@@ -110,6 +110,83 @@ def compose_feature_label(
         features = np.concatenate( (features, feature_fn(audio_ary)), axis=0)
 
     return features, int(lookup_table[file])
+
+
+def ensemble_methods(models, X, option : Literal["hard", "soft"] = "hard"):
+
+    arg_max_models = [model for model in models if hasattr(model, "decision_function")] # [N]
+    prob_models = [model for model in models if not(hasattr(model, "decision_function"))] # [N, output]
+
+    def hard_voting() ->np.ndarray:
+        Ys = []
+        for model in models:
+            Ys.append(model.predict(X))
+
+        Ys = np.stack(Ys)
+
+        hard_voting_result = np.sum(Ys, axis=0) >= (Ys.shape[0] / 2)
+        return hard_voting_result.astype(int)
+    
+    def soft_voting() ->np.ndarray:
+        probs = []
+        for model in arg_max_models:
+            probs.append(model.decision_function(X))
+
+        for model in prob_models:
+            probs.append(model.predict_proba(X)[:, 1]) # second col
+
+        probs = np.stack(probs)
+
+        soft_voting_result = np.average(probs, axis=0) >= 0.5
+        return soft_voting_result.astype(int)
+    
+    return {
+        "hard" : hard_voting,
+        "soft" : soft_voting
+    }[option]()
+
+
+def ensemble_methods_mixture(models_feat : dict, X_feat : dict, option : Literal["hard", "soft"] = "hard"):
+
+    arg_max_models = {}
+    prob_models = {} # [N, output]
+
+    for model, feat_name in models_feat.items():
+        if hasattr(model, "decision_function"):
+            arg_max_models[model] = feat_name
+        else:
+            prob_models[model] = feat_name
+
+    def hard_voting() ->np.ndarray:
+        Ys = []
+        for model, feat_name in models_feat.items():
+            X = X_feat[feat_name]
+            Ys.append(model.predict(X))
+
+        Ys = np.stack(Ys)
+
+        hard_voting_result = np.sum(Ys, axis=0) >= (Ys.shape[0] / 2)
+        return hard_voting_result.astype(int)
+    
+    def soft_voting() ->np.ndarray:
+        probs = []
+        for model, feat_name in arg_max_models.items():
+            X = X_feat[feat_name]
+            probs.append(model.decision_function(X))
+
+        for model, feat_name in prob_models.items():
+            X = X_feat[feat_name]
+            probs.append(model.predict_proba(X)[:, 1]) # second col
+
+        probs = np.stack(probs)
+
+        soft_voting_result = np.average(probs, axis=0) >= 0.5
+        return soft_voting_result.astype(int)
+    
+    return {
+        "hard" : hard_voting,
+        "soft" : soft_voting
+    }[option]()
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt

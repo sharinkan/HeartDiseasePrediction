@@ -19,7 +19,7 @@ def view_cm(models, cm_list):
     plt.show()
         
 def get_acc_auc_df(models, acc_list, auc_list):
-    model_names = [model.__class__.__name__ for model in models]
+    model_names = [model.__class__.__name__ if not(hasattr(model, "feature_train_name")) else model.feature_train_name for model in models]
     return pd.DataFrame({'Model': model_names, 'Accuracy': acc_list, 'AUC': auc_list})
 
 
