@@ -45,7 +45,7 @@ plotSpectrogram(file)
 # plt.show()
 
 #MFCCs
-MFFCs = librosa.feature.mfcc(y=signal, n_fft=n_fft, hop_length=hop_length, n_mfcc=13)
+# MFFCs = librosa.feature.mfcc(y=signal, n_fft=n_fft, hop_length=hop_length, n_mfcc=13)
 # librosa.display.specshow(MFFCs, sr=sr, hop_length=hop_length)
 # plt.xlabel("Time")
 # plt.ylabel("MFFC")
