@@ -4,6 +4,7 @@ from pathlib import Path
 from glob import glob
 import pandas as pd
 import re, os
+from random import shuffle as shuffle_list
 
 class PhonocardiogramAudioDataset(Dataset): # for iterating | for longer training process
     def __init__(
@@ -12,10 +13,39 @@ class PhonocardiogramAudioDataset(Dataset): # for iterating | for longer trainin
         extension : Literal['.hea', '.tsv', '.txt', '.wav', "*"] = ".wav", 
         channel : Literal['AV', 'TV', 'MV', 'PV', 'Phc', "*"] = "*",
         transform: Union[Callable, None] = None,
+        balancing: bool = False,
+        csvfile : str = "",
+        shuffle : bool = True
     ):
         
         self.folderPath = folder / f"*{channel}*{extension}"
         self.files = glob(str(self.folderPath))
+        if shuffle: shuffle_list(self.files)
+
+        if balancing and csvfile:
+            new_files = []
+            resultTable = PhonocardiogramByIDDatasetOnlyResult(csvfile)
+
+            allResults = [resultTable[file] for file in self.files]
+            totalPositive = sum(allResults)
+            totalNegative = len(allResults) - totalPositive
+            totalMax = min(totalPositive, totalNegative)
+
+            posCounter = 0
+            negCounter = 0
+            for file in self.files:
+                result = resultTable[file]
+                if result: # pos
+                    posCounter += 1
+                    if posCounter < totalMax:
+                        new_files.append(file)
+                else:
+                    negCounter += 1
+                    if negCounter < totalMax:
+                        new_files.append(file)
+            self.files = new_files                
+
+
         self.transform = transform
         
     def __len__(self):

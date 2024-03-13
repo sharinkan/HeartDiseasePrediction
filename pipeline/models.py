@@ -11,7 +11,11 @@ models = []
 
 models.append(LogisticRegression(solver='liblinear'))
 models.append(SVC())
-# models.append(KNeighborsClassifier())
+models.append(KNeighborsClassifier(n_neighbors=7))
 models.append(DecisionTreeClassifier())
 models.append(RandomForestClassifier())
 models.append(GaussianNB())
+
+
+if __name__ == "__main__":
+    test_model = SVC()
