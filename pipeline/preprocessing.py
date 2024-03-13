@@ -218,6 +218,97 @@ def feature_opensmile(
             ]
         ]
 
+def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, threshold = 0.05, MAXITER = 5000): 
+
+    """
+    inputs : 
+    --------
+        waveform  : The input signal data
+        S         : The number of sources to extract
+        FRAME     :
+        HOP       :
+        beta      : Beta divergence considered, default=2 (Euclidean)
+        epsilon   : Error to introduce
+        threshold : Stop criterion 
+        MAXITER   : The number of maximum iterations, default=1000
+        display   : Display plots during optimization : 
+        displayEveryNiter : only display last iteration 
+                                                            
+
+    outputs :
+    ---------
+        
+        W : dictionary matrix [KxS], W>=0
+        H : activation matrix [SxN], H>=0
+        cost_function : the optimised cost function over iterations
+        
+    Algorithm : 
+    -----------
+
+    1) Randomly initialize W and H matrices
+    2) Multiplicative update of W and H 
+    3) Repeat step (2) until convergence or after MAXITER 
+
+        
+    """
+    #############
+    # Return the complex Short Term Fourier Transform
+    sound_stft = librosa.stft(waveform, n_fft = FRAME, hop_length = HOP)
+
+    # Magnitude Spectrogram
+    sound_stft_Magnitude = np.abs(sound_stft)
+
+    V = sound_stft_Magnitude + epsilon
+    K, N = np.shape(V)
+
+    counter  = 0
+    cost_function = []
+    beta_divergence = 1
+
+    def divergence(V,W,H, beta = 2):
+    
+        """
+        beta = 2 : Euclidean cost function
+        beta = 1 : Kullback-Leibler cost function
+        beta = 0 : Itakura-Saito cost function
+        """ 
+        
+        if beta == 0 : return np.sum( V/(W@H) - math.log10(V/(W@H)) -1 )
+        
+        if beta == 1 : return np.sum( V*math.log10(V/(W@H)) + (W@H - V))
+        
+        if beta == 2 : return 1/2*np.linalg.norm(W@H-V)
+
+
+    K, N = np.shape(V)
+
+    # Initialisation of W and H matrices : The initialization is generally random
+    W = np.abs(np.random.normal(loc=0, scale = 2.5, size=(K,S)))    
+    H = np.abs(np.random.normal(loc=0, scale = 2.5, size=(S,N)))
+
+    # Plotting the first initialization
+    if display == True : plot_NMF_iter(W,H,beta,counter)
+
+
+    while beta_divergence >= threshold and counter <= MAXITER:
+        
+        # Update of W and H
+        H *= (W.T@(((W@H)**(beta-2))*V))/(W.T@((W@H)**(beta-1)) + 10e-10)
+        W *= (((W@H)**(beta-2)*V)@H.T)/((W@H)**(beta-1)@H.T + 10e-10)
+        
+        
+        # Compute cost function
+        beta_divergence =  divergence(V,W,H, beta = 2)
+        cost_function.append( beta_divergence )
+
+        counter +=1
+
+    # if counter -1 == MAXITER : 
+    #     print(f"Stop after {MAXITER} iterations.")
+    # else : 
+    #     print(f"Convergeance after {counter-1} iterations.")
+        
+    return W
 
 def window_read_f(
     f_path: str,

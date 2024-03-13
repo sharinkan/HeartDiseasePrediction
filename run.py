@@ -171,6 +171,7 @@ if __name__ == "__main__":
         feature_chromagram, 
         feature_melspectrogram,
         feature_bandpower_struct(4000,200,0.7),
+        NMF,
     ]
 
     print([f.__qualname__ for f in features_fn])
