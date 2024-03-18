@@ -120,7 +120,7 @@ def segment_audio(
 
 
 # https://github.com/IliaZenkov/sklearn-audio-classification/blob/master/sklearn_audio_classification.ipynb
-def feature_mfcc(waveform, sample_rate=4000, n_mfcc=13):
+def feature_mfcc(waveform, sample_rate=4000, n_mfcc=42):
     # Compute the MFCCs for all STFT frames and get the mean of each column of the resulting matrix to create a feature array
     # 40 filterbanks = 40 coefficients
     mfc_coefficients = np.mean(
@@ -218,7 +218,7 @@ def feature_opensmile(
             ]
         ]
 
-def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, threshold = 0.05, MAXITER = 5000): 
+def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, threshold = 0.05, MAXITER = 1000): 
 
     """
     inputs : 
@@ -231,7 +231,7 @@ def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, thre
         epsilon   : Error to introduce
         threshold : Stop criterion 
         MAXITER   : The number of maximum iterations, default=1000
-        display   : Display plots during optimization : 
+        display   : Display plots during optimization 
         displayEveryNiter : only display last iteration 
                                                             
 
@@ -287,9 +287,6 @@ def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, thre
     H = np.abs(np.random.normal(loc=0, scale = 2.5, size=(S,N)))
 
     # Plotting the first initialization
-    if display == True : plot_NMF_iter(W,H,beta,counter)
-
-
     while beta_divergence >= threshold and counter <= MAXITER:
         
         # Update of W and H
@@ -308,7 +305,7 @@ def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, thre
     # else : 
     #     print(f"Convergeance after {counter-1} iterations.")
         
-    return W
+    return W.reshape([1, -1])[0]
 
 def window_read_f(
     f_path: str,

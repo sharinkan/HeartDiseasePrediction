@@ -108,11 +108,22 @@ if __name__ == "__main__":
                 # feature_chromagram, 
                 # feature_melspectrogram,
                 # feature_bandpower_struct(4000,200,0.7),
+                # NMF,
             ],
             "f2" : [
-                feature_chromagram,
+                # feature_mfcc,
+                # feature_chromagram, 
+                # feature_melspectrogram,
+                feature_bandpower_struct(4000,200,0.7), ############## 
+                # NMF,
             ], # do here
-            "f3" : [feature_melspectrogram],
+            "f3" : [
+                # feature_mfcc,
+                # feature_chromagram, 
+                # feature_melspectrogram,
+                # feature_bandpower_struct(4000,200,0.7),
+                NMF,
+                    ],
         }
         feature_X = {}
         feature_y = {}
@@ -167,11 +178,11 @@ if __name__ == "__main__":
         exit()
 
     features_fn = [
-        feature_mfcc,
-        feature_chromagram, 
-        feature_melspectrogram,
-        feature_bandpower_struct(4000,200,0.7),
-        NMF,
+        # feature_mfcc, 
+        # feature_chromagram, 
+        # feature_melspectrogram,
+        # feature_bandpower_struct(4000,200,0.7),
+        # NMF,
     ]
 
     print([f.__qualname__ for f in features_fn])
