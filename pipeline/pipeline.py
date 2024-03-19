@@ -3,6 +3,12 @@ from sklearn import metrics
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 from sklearn.model_selection import GridSearchCV
+from pipeline.models import get_cnn_model
+
+from sklearn.metrics import confusion_matrix
+import numpy as np
+
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 def grid_search_models(models, param_grids, X_train, y_train, cv=5):
     best_models = []
@@ -46,6 +52,25 @@ def one_dim_x_train(
     print(best_models)
     print(acc_list)
     print(auc_list)
-    print(cm_list) 
         
     return acc_list, auc_list, cm_list
+
+def cnn_train(X,y):
+    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.4, random_state=42)
+    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+
+    cnn = get_cnn_model((X_train.shape[1],1))
+    cnn.fit(X_train, y_train, epochs=60, batch_size=32, validation_data=(X_val, y_val), verbose=1)
+
+    y_pred = cnn.predict(X_test)
+    y_pred = np.round(y_pred).astype(int)  # Convert probabilities to binary labels
+
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+
+    print(f"Precision: {precision}")
+    print(f"Recall: {recall}")
+    print(f"F1 Score: {f1}")
+
+

@@ -4,13 +4,14 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB
-
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization
 
 
 models = []
 
 models.append(LogisticRegression(solver='liblinear'))
-models.append(SVC(max_iter=3000))
+models.append(SVC(max_iter=10000))
 models.append(KNeighborsClassifier())
 models.append(DecisionTreeClassifier())
 models.append(RandomForestClassifier())
@@ -24,3 +25,28 @@ param_grids = [
     {'criterion': ['gini', 'entropy'], 'n_estimators': [100, 150, 200, 250, 300]},# RandomForestClassifier
     {}  # GaussianNB doesn't have hyperparameters
 ]
+
+def get_cnn_model(input_shape):
+    cnn_model = Sequential()
+
+    # Convolutional layer
+    cnn_model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=input_shape))
+    cnn_model.add(BatchNormalization())
+    cnn_model.add(MaxPooling1D(pool_size=2))
+    cnn_model.add(Dropout(0.2))
+
+    # Another convolutional layer
+    cnn_model.add(Conv1D(filters=128, kernel_size=3, activation='relu'))
+    cnn_model.add(BatchNormalization())
+    cnn_model.add(MaxPooling1D(pool_size=2))
+    cnn_model.add(Dropout(0.2))
+
+    # Flattening followed by dense layers
+    cnn_model.add(Flatten())
+    cnn_model.add(Dense(128, activation='relu'))
+    cnn_model.add(Dropout(0.5))
+    cnn_model.add(Dense(1, activation='sigmoid'))  
+    # Compile the model
+    cnn_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+    return cnn_model
