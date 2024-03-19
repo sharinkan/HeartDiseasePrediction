@@ -62,15 +62,23 @@ def cnn_train(X,y):
     cnn = get_cnn_model((X_train.shape[1],1))
     cnn.fit(X_train, y_train, epochs=60, batch_size=32, validation_data=(X_val, y_val), verbose=1)
 
-    y_pred = cnn.predict(X_test)
-    y_pred = np.round(y_pred).astype(int)  # Convert probabilities to binary labels
+    probabilities = cnn.predict(X_test)
+    threshold = 0.5
+    y_pred = (probabilities >= threshold).astype(int)
 
-    precision = precision_score(y_test, y_pred)
-    recall = recall_score(y_test, y_pred)
+    # y_pred = np.round(y_pred).astype(int)  # Convert probabilities to binary labels
+
+    acc = metrics.accuracy_score(y_test, y_pred)
+    fpr, tpr, _thresholds = metrics.roc_curve(y_test, y_pred)
+    auc = metrics.auc(fpr, tpr)
     f1 = f1_score(y_test, y_pred)
 
-    print(f"Precision: {precision}")
-    print(f"Recall: {recall}")
+    print(f"Accuracy: {acc}")
+    print(f"Auc: {auc}")
     print(f"F1 Score: {f1}")
+    acc = round(acc * 100, 2)
+    auc = round(auc * 100, 2)
+    f1 = round(f1 * 100, 2)
+    return acc, auc, f1
 
 

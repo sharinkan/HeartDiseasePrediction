@@ -5,7 +5,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization
+from tensorflow.keras.layers import Conv1D,AveragePooling1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization
 
 
 models = []

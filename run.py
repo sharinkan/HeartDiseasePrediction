@@ -9,6 +9,10 @@ from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByID
 from tqdm import tqdm
 from pipeline.utils import compose_feature_label, audio_random_windowing, energy_band_augmentation_random_win
 import sys
+import itertools
+import csv
+from datetime import datetime
+
 def pipeline(X,y):
     # To verify if there's potential need for balancing the dataset
     # show_outcome_distrib(y) 
@@ -87,60 +91,64 @@ if __name__ == "__main__":
         feature_melspectrogram,
         feature_bandpower_struct(4000,200,0.7),
     ]
-    random.seed(None)
-    # features_fn = random.choices(features_fn, k = 2,)
-    features_fn = [feature_bandpower_struct(4000,200,0.7)]
+    # random.seed(None)
+    # features_fn = [feature_melspectrogram]
 
-    print([f.__qualname__ for f in features_fn])
+    date_time = datetime.now().strftime("%m%d_%H%M")
+    run_name = "cnn_4_features"
+    file_path = f'output/{date_time}_{run_name}_output.csv'
 
-    # def compose_feature_label(file, lookup_table, feature_fns):
-    #     # assume feature_fn will return 1xN array
-    #     audio_ary, _ = librosa.load(file)
-    #     features = np.array([])
-
-    #     for feature_fn in feature_fns:
-    #         features = np.concatenate( (features, feature_fn(audio_ary)), axis=0)
-
-    #     return features, int(lookup_table[file])
-
-        
-    lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
-    dset = PhonocardiogramAudioDataset(
-        file / "training_data",
-        ".wav",
-        "*", # Everything
-        transform=lambda f : compose_with_csv(f, compose_feature_label(
-            f,
-            lookup, 
-            features_fn,
-            lambda ary_data : augmentation(ary_data,4000,200,3.))
-        ),  
-        balancing=True,
-        csvfile=str(file / "training_data.csv"),
-        shuffle=True
-    )
-
-    loader = DataLoader(
-        dset, 
-        batch_size=1,
-        shuffle=True
-        # collate_fn=lambda x : x,
-    )
-    X = []
-    y = []
-
-    for resample in range(BATCHING := 1):
-        for i in tqdm(loader): # very slow 
-            X_i,y_i = i
-            X.append(X_i)
-            y.append(y_i)
+    with open(file_path, mode='a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['accuracy_score', 'auc', 'f1', 'feature_combo'])
+    # for r in range(1, len(features_fn)+1):
+    for r in range(1, 2):
+        for feature_combo in itertools.combinations(features_fn, r):
     
-    # Creating 1 large matrix to train with classical models
-    X = torch.cat(X, dim=0)
-    y = torch.cat(y, dim=0)
+            lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
+            dset = PhonocardiogramAudioDataset(
+                file / "training_data",
+                ".wav",
+                "*", # Everything
+                transform=lambda f : compose_with_csv(f, compose_feature_label(
+                    f,
+                    lookup, 
+                    feature_combo,
+                    lambda ary_data : augmentation(ary_data,4000,300,3.))
+                ),  
+                balancing=True,
+                csvfile=str(file / "training_data.csv"),
+                shuffle=True
+            )
 
-    # Training Pipeline
-    # pipeline(X,y)
-    cnn_train(X,y)
+            loader = DataLoader(
+                dset, 
+                batch_size=1,
+                shuffle=True
+                # collate_fn=lambda x : x,
+            )
+            X = []
+            y = []
+
+            for resample in range(BATCHING := 1):
+                for i in tqdm(loader): # very slow 
+                    X_i,y_i = i
+                    X.append(X_i)
+                    y.append(y_i)
+
+            # Creating 1 large matrix to train with classical models
+            X = torch.cat(X, dim=0)
+            y = torch.cat(y, dim=0)
+
+            # Training Pipeline
+            # pipeline(X,y)
+            print('~'*10)
+            print(X.shape[1])
+            acc, auc, f1 = cnn_train(X,y)
+            r = [acc, auc, f1] + list(feature_combo)
+            with open(file_path, mode='a', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(r)
+
     
     
