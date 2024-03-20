@@ -10,6 +10,14 @@ import opensmile
 import audiofile
 import os
 import math
+import soundfile
+from pathlib import Path
+import re
+from tqdm import tqdm
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.model_selection import train_test_split
+from pprint import pprint
+from sklearn.metrics import roc_auc_score, f1_score
 
 
 def data_wrangling(df: pd.DataFrame):
@@ -184,6 +192,211 @@ def feature_bandpower_struct(sample_rate=4000, interval=200, overlap_percentage=
     return feature_bandpower
 
 
+class features_csv:
+    
+    initialized: bool = False
+    X_CSV: pd.DataFrame = None
+    y_CSV: pd.Series = None
+    IDs: pd.Series = None
+
+    def init(dataset_root):
+        if features_csv.initialized:
+            return
+        
+        features_csv.initialized = True
+        
+        # feature from the csv file, transformed by one-hot encoder
+        file = Path(dataset_root)
+        # Training On CSV data
+        original_data = pd.read_csv(str(file / "training_data.csv"))
+        
+        model_df = data_wrangling(original_data)
+        features_csv.X_CSV = one_hot_encoding(model_df, [
+            'Murmur', 
+            'Systolic murmur quality', 
+            'Systolic murmur pitch',
+            'Systolic murmur grading', 
+            'Systolic murmur shape', 
+            'Systolic murmur timing',
+            'Diastolic murmur quality', 
+            'Diastolic murmur pitch',
+            'Diastolic murmur grading', 
+            'Diastolic murmur shape', 
+            'Diastolic murmur timing',
+        ])
+        features_csv.y_CSV = model_df['Outcome'].apply(int).to_list()
+        features_csv.IDs = model_df['Patient ID'].apply(int).to_list()
+
+    def get_by_id(patient_id):
+        features_csv.IDs: list[int]
+        features_csv.X_CSV: pd.DataFrame
+        assert features_csv.initialized, "features_csv is not initialized, need to call features_csv.init first!"
+        idx = features_csv.IDs.index(int(patient_id))
+        return features_csv.X_CSV.iloc[idx]
+    
+    def get_for_file(file_path: str):
+        match = re.search(r'\d+_', file_path)
+        patient_id = match.group()[:-1]
+        return features_csv.get_by_id(patient_id)
+
+
+def build_feature_extractor(use_features, cutoff_frequency = 2000, n_mels = 128, n_mfcc = 84, sample_rate = 4000):
+
+    def extract_features(file):
+        # load an individual soundfile
+        with soundfile.SoundFile(file) as audio:
+            
+            # Remove high frequency noise
+            if cutoff_frequency > 0:
+                waveform = remove_high_frequencies(
+                    audio_data = audio.read(dtype="float32"),
+                    sample_rate = sample_rate,
+                    cutoff_frequency=cutoff_frequency
+                ).real
+            else:
+                waveform = audio.read(dtype="float32")
+            
+            # compute features of soundfile
+            features_from_file = []
+            
+            if "chromagram" in use_features:
+                features_from_file.append(feature_chromagram(waveform, sample_rate))
+
+            if "melspectrogram" in use_features:
+                features_from_file.append(feature_melspectrogram(waveform, sample_rate, n_mels))
+            
+            if "mfcc" in use_features:
+                features_from_file.append(feature_mfcc(waveform, sample_rate, n_mfcc))
+            
+            if "csv" in use_features:
+                features_from_file.append(features_csv.get_for_file(file).to_numpy())
+
+            # stack feature arrays horizontally to create a feature matrix
+            return np.hstack(features_from_file)
+
+    return extract_features
+
+
+class TCDPdata:
+    
+    def __init__(self, dataset_root):
+        self.training_data_path = dataset_root + "/training_data"
+        self.filtered_files: list[str] = []
+        self.y_dict: dict[str, int] = {}
+
+        
+        features_csv.init(dataset_root)
+
+        # create self.filtered_files
+        keywords = ['TV','AV','PV','MV']
+        extension = '.wav'
+        for filename in os.listdir(self.training_data_path):
+            if any(keyword in filename for keyword in keywords) and filename.endswith(extension):
+                self.filtered_files.append(filename)
+
+        # creat self.y_dict
+        dataset_info = pd.read_csv(dataset_root + '/training_data.csv')
+        dataset_info['Mapped_Outcome'] = dataset_info['Outcome'].map({
+            'Normal': 1,
+            'Abnormal': 0
+        })
+        self.y_dict = dict(zip(dataset_info['Patient ID'], dataset_info['Mapped_Outcome']))
+
+    def getXy(self, extract_features: callable):
+        X, y = [], []
+        for file_name in tqdm(self.filtered_files):
+            
+            X.append(
+                extract_features(
+                    os.path.join(self.training_data_path, file_name)
+                )
+            )
+            y.append(self.y_dict[int(
+                re.search(r'\d+_', file_name) \
+                .group()[:-1]
+            )])
+            
+        return np.array(X), np.array(y)
+
+def gen_datesets(features, labels, use_datasets, train_size, random_state) -> tuple[np.ndarray, np.ndarray]:
+    
+    normalizer: dict[str, callable] = {
+        "raw": lambda x: x,
+        "scaled": StandardScaler().fit_transform,
+        "minmax": MinMaxScaler().fit_transform
+    }
+
+    y = {
+        "train": None,
+        "test": None
+    }
+
+    X = {
+        x_type: y.copy()
+        for x_type in use_datasets
+    }
+
+    for x_type in use_datasets:
+        x = X[x_type]
+        x['train'], x['test'], y["train"], y["test"] = train_test_split(
+            normalizer[x_type](features), 
+            labels, 
+            train_size=train_size,
+            random_state=random_state
+        )
+
+    assert "scaled" not in use_datasets or -0.3 < X['scaled']['train'][0].mean() < 0.3
+    assert "scaled" not in use_datasets or -0.3 < X['scaled']['test'][0].mean() < 0.3
+    assert "minmax" not in use_datasets or X['minmax']['train'][0].max() == 1
+    assert "minmax" not in use_datasets or X['minmax']['test'][0].min() == 0
+    assert train_size - 0.3 < len(y["train"]) / len(labels) < train_size + 0.3
+
+    return X, y
+
+
+def cross_train(X, y, model_args, verbose=True):
+    
+    models = {}
+    scores = {}
+    
+    for x_type in X.keys():
+        x = X[x_type]
+        
+        scores[x_type] = {m_name: {} for m_name in model_args}
+        models[x_type] = {m_name: None for m_name in model_args}
+        
+        for m_name in model_args:
+            
+            if verbose:
+                print(f"Dataset: {x_type}, Model: {m_name}, Training...")
+                
+            m = model_args[m_name]        
+            m_builder: callable = m["class"]
+            m_kwargs: dict = m['kwargs']
+            
+            model = m_builder(**m_kwargs)
+            model.fit(x['train'], y['train'])
+            models[x_type][m_name] = model
+            
+            for t in ('train', 'test'):
+                y_pred = model.predict(x[t])
+                
+                scores[x_type][m_name][t] = {
+                    "accuracy": model.score(x[t], y[t]),
+                    "auc": roc_auc_score(y[t], y_pred),
+                    "f1" : f1_score(y[t], y_pred)
+                }
+                
+                if verbose:
+                    print(f"Performance on {t} set:")
+                    pprint(scores[x_type][m_name][t])
+
+            print()
+
+    return models, scores
+        
+        
+        
 def feature_opensmile(
     waveform: np.ndarray,
     sample_rate: int = 4000,
