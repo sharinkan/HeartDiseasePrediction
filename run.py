@@ -25,7 +25,7 @@ def pipeline(X,y):
     print("ensemble_methods :" , f"{VOTING=}" , np.sum(ens_Y == np.array(test_Y)) / len(test_Y))
 
 def pipeline_mixture(Xs,ys, models):
-    acc_list, auc_list, cm_list, (test_X, test_Y) = mixture_one_dim_x_train(Xs, ys, models_feat=models,test_size=0.1)
+    acc_list, auc_list, cm_list, (test_X, test_Y), models = mixture_one_dim_x_train(Xs, ys, models_feat=models,test_size=0.1,grid_search_enabled = True)
 
     # view_cm(models, cm_list)
     
@@ -128,12 +128,12 @@ if __name__ == "__main__":
         feature_X = {}
         feature_y = {}
         feature_models = {
-            LogisticRegression(solver='liblinear') : "f2",
-            SVC() : "f2",
+            LogisticRegression(solver='liblinear') : "f1",
             SVC() : "f1",
+            # SVC() : "f1",
             KNeighborsClassifier(n_neighbors=7) : "f1",
             DecisionTreeClassifier() : "f1",
-            RandomForestClassifier() : "f2",
+            RandomForestClassifier() : "f1",
             GaussianNB() : "f1",
         }
 
