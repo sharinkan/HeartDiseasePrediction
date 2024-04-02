@@ -96,7 +96,7 @@ if __name__ == "__main__":
 
     date_time = datetime.now().strftime("%m%d_%H%M")
     run_name = "cnn_4_features"
-    file_path = f'output/{date_time}_{run_name}_output.csv'
+    file_path = f'assets/output/{date_time}_{run_name}_output.csv'
 
     with open(file_path, mode='a', newline='') as f:
         writer = csv.writer(f)
@@ -142,8 +142,6 @@ if __name__ == "__main__":
 
             # Training Pipeline
             # pipeline(X,y)
-            print('~'*10)
-            print(X.shape[1])
             acc, auc, f1 = cnn_train(X,y)
             r = [acc, auc, f1] + list(feature_combo)
             with open(file_path, mode='a', newline='') as f:

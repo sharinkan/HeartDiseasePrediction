@@ -1,4 +1,4 @@
-from torch.utils.data import Datasetture_mfcc
+from torch.utils.data import Dataset
 from typing import Literal, Callable, Union, Tuple, List
 from pathlib import Path
 from glob import glob
@@ -30,7 +30,6 @@ class PhonocardiogramAudioDataset(Dataset): # for iterating | for longer trainin
             totalPositive = sum(allResults)
             totalNegative = len(allResults) - totalPositive
             totalMax = min(totalPositive, totalNegative)
-            print(totalMax, totalNegative, totalPositive)
 
             posCounter = 0
             negCounter = 0

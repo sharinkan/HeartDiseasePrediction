@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv1D,AveragePooling1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization
-
+from tensorflow.keras.optimizers import Adam
 
 models = []
 
@@ -41,12 +41,19 @@ def get_cnn_model(input_shape):
     cnn_model.add(MaxPooling1D(pool_size=2))
     cnn_model.add(Dropout(0.2))
 
+    # Third convolutional layer
+    cnn_model.add(Conv1D(filters=256, kernel_size=3, activation='relu'))
+    cnn_model.add(BatchNormalization())
+    cnn_model.add(MaxPooling1D(pool_size=2))
+    cnn_model.add(Dropout(0.3))
+
     # Flattening followed by dense layers
     cnn_model.add(Flatten())
-    cnn_model.add(Dense(128, activation='relu'))
+    cnn_model.add(Dense(256, activation='relu'))
     cnn_model.add(Dropout(0.5))
     cnn_model.add(Dense(1, activation='sigmoid'))  
     # Compile the model
-    cnn_model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    optimizer = Adam(learning_rate=0.001)
+    cnn_model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
     return cnn_model
