@@ -222,3 +222,4 @@ if __name__ == "__main__":
     y = torch.cat(y, dim=0)
     # Training Pipeline
     pipeline(X,y)
+    pipeline(X,y)
