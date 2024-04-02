@@ -1,4 +1,4 @@
-python>=3.9
+# python>=3.9
 torch
 requests
 tqdm
@@ -13,3 +13,4 @@ pydub
 noisereduce
 opensmile
 audiofile
+joblib

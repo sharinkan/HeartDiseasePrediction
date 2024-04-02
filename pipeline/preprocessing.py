@@ -187,6 +187,7 @@ def feature_bandpower_struct(sample_rate=4000, interval=200, overlap_percentage=
 def feature_opensmile(
     waveform: np.ndarray,
     sample_rate: int = 4000,
+    one_d: bool = False,
     feature_set=opensmile.FeatureSet.eGeMAPSv02,
     short: bool = False,
 ) -> pd.DataFrame:
@@ -197,11 +198,15 @@ def feature_opensmile(
     """
     smile = opensmile.Smile(
         feature_set=feature_set,
-        feature_level=opensmile.FeatureLevel.LowLevelDescriptors,
+        feature_level=(
+            opensmile.FeatureLevel.LowLevelDescriptors
+            if one_d is False else
+            opensmile.FeatureLevel.Functionals
+        )
     )
     features_df = smile.process_signal(waveform, sample_rate)
     if not short:
-        return features_df
+        return features_df if one_d is False else features_df.to_numpy()[0]
     else:
         return features_df[
             [  # use this
