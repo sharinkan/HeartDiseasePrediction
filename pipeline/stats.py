@@ -1,10 +1,18 @@
+"""showing stats / results
+"""
+
 from matplotlib import pyplot as plt
 import seaborn as sns
 import pandas as pd
 
 
-def view_cm(models, cm_list):
-    ## plot confusion matrix
+def view_cm(models : "MLmodel", cm_list:list) -> None:
+    """plot confusion matrix
+
+    Args:
+        models (MLmodel): models
+        cm_list (list): confusion matrix 
+    """
     model_names = [model.__class__.__name__ for model in models]
     
     fig = plt.figure(figsize = (18, 10))
@@ -18,13 +26,28 @@ def view_cm(models, cm_list):
         
     plt.show()
         
-def get_acc_auc_df(models, acc_list, auc_list):
+def get_acc_auc_df(models : "MLmodel", acc_list : list, auc_list : list) ->pd.DataFrame:
+    """accuarcy and AUC dataframe
+
+    Args:
+        models (MLmodel): models
+        acc_list (list): accuaray list
+        auc_list (list): AUC list
+
+    Returns:
+        pd.DataFrame: containing both list
+    """
     model_names = [model.__class__.__name__ if not(hasattr(model, "feature_train_name")) else model.feature_train_name for model in models]
     return pd.DataFrame({'Model': model_names, 'Accuracy': acc_list, 'AUC': auc_list})
 
 
 
-def show_outcome_distrib(df: pd.DataFrame):
+def show_outcome_distrib(df: pd.DataFrame) -> None:
+    """display outcome disturbtion
+
+    Args:
+        df (pd.DataFrame): disturbtion
+    """
     count = ""
     if isinstance(df, pd.DataFrame):
         count = df['Outcome'].value_counts()
