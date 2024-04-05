@@ -1,5 +1,6 @@
-# Feel free to add your own lines of code to handle further data manipulation (wrangling)
-# before feeding it to future ML models
+"""preprocessing actions such as feature extraction
+"""
+
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 import librosa
@@ -12,7 +13,15 @@ import os
 import math
 
 
-def data_wrangling(df: pd.DataFrame):
+def data_wrangling(df: pd.DataFrame) -> pd.DataFrame:
+    """data wrangling on csv labels
+
+    Args:
+        df (pd.DataFrame): csv file in dataframe
+
+    Returns:
+        pd.DataFrame: result dataframe
+    """
     data = df.copy(deep=True)
     data["Age"].fillna(
         "Young Adult", inplace=True
@@ -39,26 +48,19 @@ def data_wrangling(df: pd.DataFrame):
     # dmp_mapping = {'Low': 0, 'Medium': 1, 'High': 2}
     # dmq_mapping = {'Blowing': 0, 'Harsh': 1}
 
-    # Add new lines as needed for future work
-    """
-
-    """
     return data
 
 
-def label_encoding(df: pd.DataFrame, cols: list):
-    data = df.copy(deep=True)
-    data = data[cols]
-    for col in cols:
-        data[col] = LabelEncoder().fit_transform(data[col])
-        ## Figure out how to extract dict key-val matching pair
-        # label_mapping = {encoded: label for encoded, label in enumerate(label_encoder.classes_)}
+def one_hot_encoding(df: pd.DataFrame, cols: list) -> pd.DataFrame:
+    """one hot encode dataframe based on selected columns
 
-    # print(label_mapping)
-    return data
+    Args:
+        df (pd.DataFrame): original dataframe
+        cols (list): selected columns
 
-
-def one_hot_encoding(df: pd.DataFrame, cols: list):
+    Returns:
+        pd.DataFrame: encoded data
+    """
     data = df.copy(deep=True)
     data = data[cols]
     df_encoded = pd.get_dummies(data, dtype=int)
@@ -66,7 +68,17 @@ def one_hot_encoding(df: pd.DataFrame, cols: list):
     return df_encoded
 
 
-def remove_high_frequencies(audio_data, sample_rate, cutoff_frequency):
+def remove_high_frequencies(audio_data : np.ndarray, sample_rate :int , cutoff_frequency: int) -> np.ndarray:
+    """remove audio data above certain frequencies
+
+    Args:
+        audio_data (np.ndarray): audio array
+        sample_rate (int): sample rate of audio
+        cutoff_frequency (int): max allowed frequency
+
+    Returns:
+        np.ndarray: result audio
+    """
     audio_fft = np.fft.fft(audio_data)
     fft_freqs = np.fft.fftfreq(audio_fft.size, 1 / sample_rate)
     audio_fft[np.abs(fft_freqs) > cutoff_frequency] = 0
@@ -88,7 +100,7 @@ def segment_audio(
     """
     Segments and extracts features from an audio file.
 
-    Parameters:
+    Args:
         audio_file (str): Path to the audio file.
         sr (int): Sampling rate.
         start_sample (float): Start sample for segmentation.
@@ -119,18 +131,34 @@ def segment_audio(
     return mel_spec
 
 
-# https://github.com/IliaZenkov/sklearn-audio-classification/blob/master/sklearn_audio_classification.ipynb
-def feature_mfcc(waveform, sample_rate=4000, n_mfcc=13):
-    # Compute the MFCCs for all STFT frames and get the mean of each column of the resulting matrix to create a feature array
-    # 40 filterbanks = 40 coefficients
+def feature_mfcc(waveform :np.ndarray, sample_rate=4000, n_mfcc=42) -> np.ndarray:
+    """Compute the MFCCs for all STFT frames and get the mean of each column of the resulting matrix to create a feature array\
+        40 filterbanks = 40 coefficients\
+            https://github.com/IliaZenkov/sklearn-audio-classification/blob/master/sklearn_audio_classification.ipynb
+    Args:
+        waveform (np.ndarray): audio
+        sample_rate (int, optional): audio sample rate. Defaults to 4000.
+        n_mfcc (int, optional): number of mfcc features. Defaults to 42.
+
+    Returns:
+        np.ndarray: feature result from mfcc
+    """
     mfc_coefficients = np.mean(
         librosa.feature.mfcc(y=waveform, sr=sample_rate, n_mfcc=n_mfcc).T, axis=0
     )
     return mfc_coefficients
 
 
-def feature_chromagram(waveform, sample_rate=4000):
-    # STFT computed here explicitly; mel spectrogram and MFCC functions do this under the hood
+def feature_chromagram(waveform : np.ndarray, sample_rate=4000) -> np.ndarray:
+    """STFT computed here explicitly; mel spectrogram and MFCC functions do this under the hood
+
+    Args:
+        waveform (np.ndarray): audio
+        sample_rate (int, optional): audio sample rate. Defaults to 4000.
+
+    Returns:
+        np.ndarray: chromagram feature
+    """
     stft_spectrogram = np.abs(librosa.stft(waveform))
     # Produce the chromagram for all STFT frames and get the mean of each column of the resulting matrix to create a feature array
     chromagram = np.mean(
@@ -139,9 +167,18 @@ def feature_chromagram(waveform, sample_rate=4000):
     return chromagram
 
 
-def feature_melspectrogram(waveform, sample_rate=4000, n_mels=16):
-    # Produce the mel spectrogram for all STFT frames and get the mean of each column of the resulting matrix to create a feature array
-    # Using 8khz as upper frequency bound should be enough for most speech classification tasks
+def feature_melspectrogram(waveform : np.ndarray, sample_rate=4000, n_mels=16) -> np.ndarray:
+    """_summaProduce the mel spectrogram for all STFT frames and get the mean of each column of the resulting matrix to create a feature array\
+        Using 8khz as upper frequency bound should be enough for most speech classification tasksry_
+
+    Args:
+        waveform (np.ndarray): audio
+        sample_rate (int, optional): audio sample rate. Defaults to 4000.
+        n_mels (int, optional): number of melspectrogram features. Defaults to 16.
+
+    Returns:
+        np.ndarray: melspectrogram features
+    """
     melspectrogram = np.mean(
         librosa.feature.melspectrogram(y=waveform, sr=sample_rate, n_mels=n_mels).T,
         axis=0,
@@ -149,14 +186,17 @@ def feature_melspectrogram(waveform, sample_rate=4000, n_mels=16):
     return melspectrogram
 
 
-def bandpower(x, fs, fmin, fmax):
-    f, Pxx = signal.periodogram(x, fs=fs)
-    ind_min = np.argmax(f > fmin) - 1
-    ind_max = np.argmax(f > fmax) - 1
-    return np.trapz(Pxx[ind_min:ind_max], f[ind_min:ind_max])
 
+def bandpower_struct(x : np.ndarray, fs : int) -> callable:
+    """bandpower feature function constructor
 
-def bandpower_struct(x, fs):
+    Args:
+        x (np.ndarray): audio
+        fs (int): max audio frequency
+
+    Returns:
+        callable: bandpower feature function
+    """
     f, Pxx = signal.periodogram(x, fs=fs)
 
     def bandpower(fmin, fmax):
@@ -168,12 +208,30 @@ def bandpower_struct(x, fs):
 
 
 # band power feature
-def feature_bandpower_struct(sample_rate=4000, interval=200, overlap_percentage=0.7):
+def feature_bandpower_struct(sample_rate : int=4000, interval :int =200, overlap_percentage : float=0.7) -> callable:
+    """bandpower feature function constructor for specific audio sample with windowing method on frequency bands
+
+    Args:
+        sample_rate (int, optional): audio sample rate (all audio using this should have same sr). Defaults to 4000.
+        interval (int, optional): windowing interval on frequency bands . Defaults to 200.
+        overlap_percentage (float, optional): overlapping percentage. Defaults to 0.7.
+
+    Returns:
+        callable: bandpower feature function
+    """
     freq_windows = list(
         sliding_window_iter(0, sample_rate // 2, interval, overlap_percentage)
     )
 
-    def feature_bandpower(waveform):
+    def feature_bandpower(waveform :np.ndarray) -> np.ndarray:
+        """give bandpower feature on audio
+
+        Args:
+            waveform (np.ndarray): audio
+
+        Returns:
+            np.ndarray: bandpower feature
+        """
         bandpower_func = bandpower_struct(waveform, fs=sample_rate // 2)
         features = []
         for win_start, win_end in freq_windows:
@@ -188,13 +246,22 @@ def feature_opensmile(
     waveform: np.ndarray,
     sample_rate: int = 4000,
     one_d: bool = False,
-    feature_set=opensmile.FeatureSet.eGeMAPSv02,
+    feature_set : "FEATURE CODE"=opensmile.FeatureSet.eGeMAPSv02,
     short: bool = False,
 ) -> pd.DataFrame:
-    """
-    Calculate the opensmile features for each 2 second. Step = 1 sec. there are 25 features in total.
+    """Calculate the opensmile features for each 2 second. Step = 1 sec. there are 25 features in total.
     If the input waveform is x seconds, then the output DataFrame will be x rowx * 25 columns.
     Ref for eGeMAPSv02: https://sail.usc.edu/publications/files/eyben-preprinttaffc-2015.pdf
+
+    Args:
+        waveform (np.ndarray): audio
+        sample_rate (int, optional): audio sample rate. Defaults to 4000.
+        one_d (bool, optional): is the data 1 dimensional. Defaults to False.
+        feature_set ("FEATURE CODE", optional): feature code. Defaults to opensmile.FeatureSet.eGeMAPSv02.
+        short (bool, optional): return subset. Defaults to False.
+
+    Returns:
+        pd.DataFrame: features
     """
     smile = opensmile.Smile(
         feature_set=feature_set,
@@ -223,7 +290,7 @@ def feature_opensmile(
             ]
         ]
 
-def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, threshold = 0.05, MAXITER = 5000): 
+def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, threshold = 0.05, MAXITER = 1000): 
 
     """
     inputs : 
@@ -236,7 +303,7 @@ def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, thre
         epsilon   : Error to introduce
         threshold : Stop criterion 
         MAXITER   : The number of maximum iterations, default=1000
-        display   : Display plots during optimization : 
+        display   : Display plots during optimization 
         displayEveryNiter : only display last iteration 
                                                             
 
@@ -292,9 +359,6 @@ def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, thre
     H = np.abs(np.random.normal(loc=0, scale = 2.5, size=(S,N)))
 
     # Plotting the first initialization
-    if display == True : plot_NMF_iter(W,H,beta,counter)
-
-
     while beta_divergence >= threshold and counter <= MAXITER:
         
         # Update of W and H
@@ -313,7 +377,7 @@ def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, thre
     # else : 
     #     print(f"Convergeance after {counter-1} iterations.")
         
-    return W
+    return W.reshape([1, -1])[0]
 
 def window_read_f(
     f_path: str,
