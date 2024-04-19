@@ -459,7 +459,7 @@ def feature_opensmile(
     waveform: np.ndarray,
     sample_rate: int = 4000,
     one_d: bool = False,
-    feature_set : "FEATURE CODE"=opensmile.FeatureSet.eGeMAPSv02,
+    feature_set : str = opensmile.FeatureSet.eGeMAPSv02,
     short: bool = False,
 ) -> pd.DataFrame:
     """Calculate the opensmile features for each 2 second. Step = 1 sec. there are 25 features in total.
