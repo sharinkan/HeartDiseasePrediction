@@ -60,7 +60,7 @@ def cnn_train(X,y):
     X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
     cnn = get_cnn_model((X_train.shape[1],1))
-    cnn.fit(X_train, y_train, epochs=120, batch_size=32, validation_data=(X_val, y_val), verbose=1)
+    cnn.fit(X_train, y_train, epochs=30, batch_size=32, validation_data=(X_val, y_val), verbose=1)
 
     probabilities = cnn.predict(X_test)
     threshold = 0.5
