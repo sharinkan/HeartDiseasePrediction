@@ -5,7 +5,6 @@ from glob import glob
 import pandas as pd
 import re, os
 from random import shuffle as shuffle_list
-from functools import cache
 
 class PhonocardiogramAudioDataset(Dataset):
     def __init__(
@@ -83,7 +82,6 @@ class PhonocardiogramByIDDatasetOnlyResult():
         self.primaryKey = "Patient ID"
         self.tableContent = pd.read_csv(csvFile)[[self.primaryKey, "Outcome"]]
         
-    @cache
     def __getitem__(self, key : Union[int, str]):
         if isinstance(key, str): # if string file name
             match = re.match(r"(\d+)", os.path.basename(key))

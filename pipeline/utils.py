@@ -133,11 +133,7 @@ def energy_band_augmentation_random_win(
 
 
 
-# caching..
 
-from functools import cache
-
-librosa_load_cached = cache(librosa.load)
 from time import time
 def compose_feature_label(
     file : str, 
@@ -160,7 +156,7 @@ def compose_feature_label(
     """
     
     # assume feature_fn will return 1xN array
-    audio_ary, _ = librosa_load_cached(file)
+    audio_ary, _ = librosa.load(file)
     
     audio_ary = transform(audio_ary)
     features = np.array([])
