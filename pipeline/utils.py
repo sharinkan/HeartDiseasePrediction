@@ -138,7 +138,7 @@ def energy_band_augmentation_random_win(
 from functools import cache
 
 librosa_load_cached = cache(librosa.load)
-
+from time import time
 def compose_feature_label(
     file : str, 
     lookup_table : PhonocardiogramByIDDatasetOnlyResult, 
@@ -161,13 +161,22 @@ def compose_feature_label(
     
     # assume feature_fn will return 1xN array
     audio_ary, _ = librosa_load_cached(file)
+    
     audio_ary = transform(audio_ary)
     features = np.array([])
+
     if dim == 1:
         for feature_fn in feature_fns:
             features = np.concatenate( (features, feature_fn(audio_ary)), axis=0)
     if dim == 2:
+        
         features = [feature_fn(audio_ary) for feature_fn in feature_fns]
+        # features = []
+        # for feature_fn in feature_fns:
+        #     s = time()
+        #     features.append(feature_fn(audio_ary))
+        #     print("feat ", feature_fn.__qualname__, time() - s)
+
         features = np.array(features, dtype=object) if is_np else features
 
     return features, int(lookup_table[file])

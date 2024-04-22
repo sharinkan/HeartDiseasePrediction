@@ -36,11 +36,12 @@ if __name__ == "__main__":
         # feature_chromagram, 
         # feature_melspectrogram,
         feature_bandpower_struct(4000,200,0.7),
-        NMF,
+        # NMF, # found -> takes around 0.1s per file
     ]    
     
-    def dset_trans(f : str):
-        return compose_feature_label(
+    def dset_trans(f : str): # each takes ~0.1s
+
+        result = compose_feature_label(
             f,
             lookup, 
             features_fn,
@@ -48,6 +49,8 @@ if __name__ == "__main__":
             dim=2,
             is_np=False
         )
+
+        return result
         
     def create_MLPs():
         rand_sample = np.random.random((4000 * 10,)) # 10 sec sample for 4000sr
@@ -84,8 +87,8 @@ if __name__ == "__main__":
     test_size = len(dset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(dset, [train_size, test_size])
     
-    train_loader = DataLoader(train_dataset, batch_size=128,shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=128,shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=64,shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=64,shuffle=False)
 
     # training
     combinedMLP.to(device)
@@ -95,20 +98,29 @@ if __name__ == "__main__":
     optimizer = optim.Adam(combinedMLP.parameters(), lr=0.00001)
 
     num_epoch = 5
-    
+
+
+    from time import time
+
+    combinedMLP.train()
     for epoch in range(num_epoch):
-        combinedMLP.train()
         for X,y in tqdm(train_loader):
+
             X = [x_sub.to(device) for x_sub in X]
             y = y.to(device)
 
             optimizer.zero_grad()
+            
             out = combinedMLP(X)
+
             # LATER
             loss = criterion(out.squeeze(), y.float())
+
             loss.backward()
             optimizer.step()
+
             
+
         print(f'Epoch [{epoch+1}/{num_epoch}], Loss: {loss.item():.4f}')
         
     # Testing
