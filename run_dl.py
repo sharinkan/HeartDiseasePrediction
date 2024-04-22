@@ -17,9 +17,9 @@ if __name__ == "__main__":
     import re, random
 
     file = Path(".") / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Training on actual patient audio files
-    segmentation_table = PhonocardiogramAugmentationTSV(file / "training_data")
     
     def augmentation(data :np.ndarray, sr : int=4000, window_length_hz :int =200, window_len_sec :float=5.) ->np.ndarray:
         x = data
@@ -84,8 +84,11 @@ if __name__ == "__main__":
     test_size = len(dset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(dset, [train_size, test_size])
     
-    train_loader = DataLoader(train_dataset, batch_size=16,shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=16,shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=128,shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=128,shuffle=False)
+
+    # training
+    combinedMLP.to(device)
     
     
     criterion = nn.BCELoss()
@@ -96,6 +99,9 @@ if __name__ == "__main__":
     for epoch in range(num_epoch):
         combinedMLP.train()
         for X,y in tqdm(train_loader):
+            X = [x_sub.to(device) for x_sub in X]
+            y = y.to(device)
+
             optimizer.zero_grad()
             out = combinedMLP(X)
             # LATER
@@ -111,6 +117,10 @@ if __name__ == "__main__":
     
     with torch.no_grad():
         for Xtest, ytest in tqdm(train_loader):
+            Xtest = [x_sub.to(device) for x_sub in Xtest]
+            ytest = y.to(device)
+
+
             out = combinedMLP(Xtest)
             print(out, ytest)
             pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
@@ -119,6 +129,10 @@ if __name__ == "__main__":
         print(f'Training set Accuracy: {sum(acc)/len(acc):.4f}')
         
         for Xtest, ytest in tqdm(test_loader):
+            Xtest = [x_sub.to(device) for x_sub in Xtest]
+            ytest = y.to(device)
+
+
             out = combinedMLP(Xtest)
             pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
             accu = (pred == ytest).float().mean().item()

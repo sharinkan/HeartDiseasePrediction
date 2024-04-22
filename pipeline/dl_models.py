@@ -69,6 +69,12 @@ class CombinedMLP(nn.Module):
         super(CombinedMLP, self).eval(*args, **kwargs)
         for sub_model in self.MLPS:
             sub_model.eval(*args, **kwargs)
+
+
+    def to(self, *args, **kwargs):
+        super(CombinedMLP, self).to(*args, **kwargs)
+        for sub_model in self.MLPS:
+            sub_model.to(*args, **kwargs)
         
     
         
