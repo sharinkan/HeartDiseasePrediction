@@ -10,10 +10,10 @@ from typing import Tuple, List, Dict
 def one_dim_x_train(
         X : np.ndarray, # each data is 1D 
         y : np.ndarray,
-        models : "MLmodel",
+        models : object,
         test_size: float, 
         random_state : int = None,
-    ) -> Tuple[list, list, list, List[np.ndarray, np.ndarray]]:
+    ) -> Tuple[list, list, list, List[np.ndarray]]:
     """training models with 2D X 
 
     Args:
@@ -52,13 +52,13 @@ def one_dim_x_train(
     return acc_list, auc_list, cm_list, (X_test, y_test)
 
 def mixture_one_dim_x_train(
-        Xs : Dict["Feature Name", np.ndarray], 
-        ys : Dict["Feature Name", np.ndarray],
-        models_feat : Dict["MLmodel", "Feature Name"],
+        Xs : Dict[str, np.ndarray], 
+        ys : Dict[str, np.ndarray],
+        models_feat : Dict[object, str],
         test_size: float, 
         random_state = 1, # make this fixed, or it might not work too well.. as it might give some model trained data as testing data
         grid_search_enabled = False
-    )-> Tuple[list, list, list, List[np.ndarray, np.ndarray]]:
+    )-> Tuple[list, list, list, List[np.ndarray]]:
     """training with each model with different feature sets
 
     Args:
@@ -69,7 +69,7 @@ def mixture_one_dim_x_train(
         random_state (int, optional): random seed. Defaults to 1.
 
     Returns:
-        Tuple[list, list, list, List[np.ndarray, np.ndarray]]: accuarcy list, AUC list, confusion matrix list, [testing X, testing Y]
+        Tuple[list, list, list, List[np.ndarray]]: accuarcy list, AUC list, confusion matrix list, [testing X, testing Y]
     """
     
 

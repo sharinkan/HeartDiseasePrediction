@@ -6,7 +6,7 @@ import seaborn as sns
 import pandas as pd
 
 
-def view_cm(models : "MLmodel", cm_list:list) -> None:
+def view_cm(models : str, cm_list:list) -> None:
     """plot confusion matrix
 
     Args:

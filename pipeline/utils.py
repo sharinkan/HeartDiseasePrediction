@@ -161,7 +161,7 @@ def compose_feature_label(
     return features, int(lookup_table[file])
 
 
-def ensemble_methods(models : "MLmodels", X :np.ndarray, option : Literal["hard", "soft"] = "hard") -> np.ndarray:
+def ensemble_methods(models : str, X :np.ndarray, option : Literal["hard", "soft"] = "hard") -> np.ndarray:
     """ensemble methods on multiple models
 
     Args:

@@ -20,6 +20,7 @@ from sklearn.model_selection import train_test_split
 from pprint import pprint
 from sklearn.metrics import roc_auc_score, f1_score
 
+from typing import Tuple
 
 def data_wrangling(df: pd.DataFrame) -> pd.DataFrame:
     """data wrangling on csv labels
@@ -376,7 +377,7 @@ class TCDPdata:
             
         return np.array(X), np.array(y)
 
-def gen_datesets(features, labels, use_datasets, train_size, random_state) -> tuple[np.ndarray, np.ndarray]:
+def gen_datesets(features, labels, use_datasets, train_size, random_state) -> Tuple[np.ndarray, np.ndarray]:
     
     normalizer: dict[str, callable] = {
         "raw": lambda x: x,

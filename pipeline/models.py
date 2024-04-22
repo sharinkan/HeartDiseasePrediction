@@ -27,6 +27,6 @@ param_grid_dict = {
     "GaussianNB" : {} # GaussianNB doesn't have hyperparameters
 }
 
-param_grid = [
+param_grids = [
     param_grid_dict[model.__class__.__name__] for model in models
 ]
