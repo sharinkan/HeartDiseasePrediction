@@ -205,7 +205,7 @@ def ensemble_methods(models : str, X :np.ndarray, option : Literal["hard", "soft
     }[option]()
 
 
-def ensemble_methods_mixture(models_feat : Dict["MLmodel" , "feature_name"], X_feat : Dict["feature_name", np.ndarray], option : Literal["hard", "soft"] = "hard") -> np.ndarray:
+def ensemble_methods_mixture(models_feat : Dict[str , str], X_feat : Dict[str, np.ndarray], option : Literal["hard", "soft"] = "hard") -> np.ndarray:
     """ensemble methods with model trained on different feature sets
 
     Args:
