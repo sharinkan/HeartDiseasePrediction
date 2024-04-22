@@ -34,7 +34,7 @@ def pipeline(X : np.ndarray,y :np.ndarray) -> None:
     ens_Y = ensemble_methods(models, test_X, option=VOTING)
     print("ensemble_methods :" , f"{VOTING=}" , np.sum(ens_Y == np.array(test_Y)) / len(test_Y))
 
-def pipeline_mixture(Xs: Dict["Feature Name", np.ndarray],ys:Dict["Feature Name", np.ndarray], models:Dict["MLmodel", "Feature Name"]) -> None:
+def pipeline_mixture(Xs: Dict[str, np.ndarray],ys:Dict[str, np.ndarray], models:Dict[object, str]) -> None:
     """pipeline for training models with each model trained on different feature set
 
     Args:
