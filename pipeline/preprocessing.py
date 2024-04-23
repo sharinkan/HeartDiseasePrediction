@@ -593,6 +593,62 @@ def NMF(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, thre
         
     return W.reshape([1, -1])[0]
 
+def NMF_Norm(waveform, S = 3, FRAME = 512, HOP = 256, beta = 2, epsilon = 1e-10, threshold = 0.05, MAXITER = 1000): 
+
+    #############
+    # Return the complex Short Term Fourier Transform
+    sound_stft = librosa.stft(waveform, n_fft = FRAME, hop_length = HOP)
+
+    # Magnitude Spectrogram
+    sound_stft_Magnitude = np.abs(sound_stft)
+
+    V = sound_stft_Magnitude + epsilon
+    K, N = np.shape(V)
+
+    counter  = 0
+    cost_function = []
+    beta_divergence = 1
+
+    def divergence(V,W,H, beta = 2):
+    
+        """
+        beta = 2 : Euclidean cost function
+        beta = 1 : Kullback-Leibler cost function
+        beta = 0 : Itakura-Saito cost function
+        """ 
+        
+        if beta == 0 : return np.sum( V/(W@H) - math.log10(V/(W@H)) -1 )
+        
+        if beta == 1 : return np.sum( V*math.log10(V/(W@H)) + (W@H - V))
+        
+        if beta == 2 : return 1/2*np.linalg.norm(W@H-V)
+
+
+    K, N = np.shape(V)
+
+    # Initialisation of W and H matrices : The initialization is generally random
+    W = np.abs(np.random.normal(loc=0, scale = 2.5, size=(K,S)))    
+    H = np.abs(np.random.normal(loc=0, scale = 2.5, size=(S,N)))
+
+    # Plotting the first initialization
+    while beta_divergence >= threshold and counter <= MAXITER:
+        
+        # Update of W and H
+        H *= (W.T@(((W@H)**(beta-2))*V))/(W.T@((W@H)**(beta-1)) + 10e-10)
+        W *= (((W@H)**(beta-2)*V)@H.T)/((W@H)**(beta-1)@H.T + 10e-10)
+        
+        
+        # Compute cost function
+        beta_divergence =  divergence(V,W,H, beta = 2)
+        cost_function.append( beta_divergence )
+
+        counter +=1
+
+        W_norm = np.linalg.norm(W)
+        H_norm = np.linalg.norm(H)
+        
+    return np.array([W_norm, H_norm])
+
 def window_read_f(
     f_path: str,
     window_width: int,
