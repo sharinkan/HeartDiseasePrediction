@@ -6,7 +6,7 @@ import seaborn as sns
 import pandas as pd
 
 
-def view_cm(models : "MLmodel", cm_list:list) -> None:
+def view_cm(models : str, cm_list:list) -> None:
     """plot confusion matrix
 
     Args:
@@ -26,7 +26,7 @@ def view_cm(models : "MLmodel", cm_list:list) -> None:
         
     plt.show()
         
-def get_acc_auc_df(models : "MLmodel", acc_list : list, auc_list : list) ->pd.DataFrame:
+def get_acc_auc_df(models : str, acc_list : list, auc_list : list) ->pd.DataFrame:
     """accuarcy and AUC dataframe
 
     Args:
