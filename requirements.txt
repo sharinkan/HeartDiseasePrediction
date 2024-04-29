@@ -14,3 +14,5 @@ noisereduce
 opensmile
 audiofile
 joblib
+torchvision
+tensorflow

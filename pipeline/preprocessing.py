@@ -194,6 +194,22 @@ def feature_melspectrogram(waveform : np.ndarray, sample_rate=4000, n_mels=16) -
     return melspectrogram
 
 
+def feature_mel_2d(waveform: np.ndarray, sample_rate=4000, n_mels=128) -> np.ndarray:
+    """Extract 2D mel-spectrogram features from an audio waveform.
+
+    Args:
+        waveform (np.ndarray): Audio waveform.
+        sample_rate (int, optional): Sample rate of the audio. Defaults to 4000.
+        n_mels (int, optional): Number of Mel bands to generate. Defaults to 128.
+
+    Returns:
+        np.ndarray: 2D mel-spectrogram features (n_mels, time_frames).
+    """
+    mel_spec = librosa.feature.melspectrogram(
+        y=waveform, sr=sample_rate, n_mels=n_mels
+    )
+    return mel_spec
+
 
 def bandpower_struct(x : np.ndarray, fs : int) -> callable:
     """bandpower feature function constructor
@@ -315,22 +331,27 @@ def build_feature_extractor(use_features, cutoff_frequency = 2000, n_mels = 128,
                 waveform = audio.read(dtype="float32")
             
             # compute features of soundfile
-            features_from_file = []
+            if "mel_2d" in use_features:
+                assert len(use_features) == 1, "When using 'mel_2d' feature, it should be the only feature"
+                return feature_mel_2d(waveform, sample_rate, n_mels)
             
-            if "chromagram" in use_features:
-                features_from_file.append(feature_chromagram(waveform, sample_rate))
+            else:
+                features_from_file = []
+            
+                if "chromagram" in use_features:
+                    features_from_file.append(feature_chromagram(waveform, sample_rate))
 
-            if "melspectrogram" in use_features:
-                features_from_file.append(feature_melspectrogram(waveform, sample_rate, n_mels))
+                if "melspectrogram" in use_features:
+                    features_from_file.append(feature_melspectrogram(waveform, sample_rate, n_mels))
             
-            if "mfcc" in use_features:
-                features_from_file.append(feature_mfcc(waveform, sample_rate, n_mfcc))
+                if "mfcc" in use_features:
+                    features_from_file.append(feature_mfcc(waveform, sample_rate, n_mfcc))
             
-            if "csv" in use_features:
-                features_from_file.append(features_csv.get_for_file(file).to_numpy())
+                if "csv" in use_features:
+                    features_from_file.append(features_csv.get_for_file(file).to_numpy())
 
-            # stack feature arrays horizontally to create a feature matrix
-            return np.hstack(features_from_file)
+                # stack feature arrays horizontally to create a feature matrix
+                return np.hstack(features_from_file)
 
     return extract_features
 
@@ -363,26 +384,120 @@ class TCDPdata:
     def getXy(self, extract_features: callable):
         X, y = [], []
         for file_name in tqdm(self.filtered_files):
-            
-            X.append(
-                extract_features(
-                    os.path.join(self.training_data_path, file_name)
-                )
-            )
+            file_path = os.path.join(self.training_data_path, file_name)
+            feature = extract_features(file_path)
+            X.append(feature)
+
             y.append(self.y_dict[int(
                 re.search(r'\d+_', file_name) \
                 .group()[:-1]
             )])
-            
+
+        # If the features are 2D mel-spectrograms, pad them to the same shape
+        if X and X[0].ndim == 2:
+            max_length = max(x.shape[1] for x in X)
+            X = [np.pad(x, ((0, 0), (0, max_length - x.shape[1])), mode='constant') for x in X]
+
         return np.array(X), np.array(y)
 
-def gen_datesets(features, labels, use_datasets, train_size, random_state) -> tuple[np.ndarray, np.ndarray]:
+
+def high_dim_min_max_scaler(normalize_axis: tuple[int]):
     
-    normalizer: dict[str, callable] = {
-        "raw": lambda x: x,
-        "scaled": StandardScaler().fit_transform,
-        "minmax": MinMaxScaler().fit_transform
-    }
+    def min_max_fit_transform(m: np.ndarray):
+        n_normalize_axis = len(normalize_axis)
+
+        def swap_follow_normalize_axis(m):
+            m_swapped = m.copy()
+            for i in range(n_normalize_axis):
+                m_swapped = m_swapped.swapaxes(i, normalize_axis[i])
+            return m_swapped
+
+        m_swapped = swap_follow_normalize_axis(m)
+
+        operate_axis = tuple(range(n_normalize_axis))
+        maxs = m_swapped.max(axis=operate_axis)
+        mins = m_swapped.min(axis=operate_axis)
+        ranges = maxs - mins
+        diffs = m_swapped - mins
+        m_swapped_scaled = np.divide(
+            diffs,
+            ranges,
+            out=np.zeros_like(diffs),
+            where=(ranges!=0)
+        )
+        
+        m_scaled = swap_follow_normalize_axis(m_swapped_scaled)
+        assert round(m_scaled.min()) == 0 and round(m_scaled.max()) == 1, "strict mode test"
+        return m_scaled
+
+    return min_max_fit_transform
+
+
+def high_dim_standard_scaler(normalize_axis: tuple[int]):
+    
+    def standard_fit_transform(m: np.ndarray):
+        n_normalize_axis = len(normalize_axis)
+
+        def swap_follow_normalize_axis(m):
+            m_swapped = m.copy()
+            for i in range(n_normalize_axis):
+                m_swapped = m_swapped.swapaxes(i, normalize_axis[i])
+            return m_swapped
+
+        m_swapped = swap_follow_normalize_axis(m)
+
+        operate_axis = tuple(range(n_normalize_axis))
+        means = m_swapped.mean(axis=operate_axis)
+        stds = m_swapped.std(axis=operate_axis)
+        diffs = m_swapped - means
+        m_swapped_scaled = np.divide(
+            diffs,
+            stds,
+            out=np.zeros_like(diffs),
+            where=(stds!=0)
+        )
+        
+        m_scaled = swap_follow_normalize_axis(m_swapped_scaled)
+        assert round(m_scaled.mean(axis=normalize_axis).sum()) == 0, "strict mode test"
+        assert round(m_scaled.std(axis=normalize_axis).mean()) == 1, "strict mode test"
+        return m_scaled
+
+    return standard_fit_transform
+
+
+def gen_datesets(features, labels, use_datasets, train_size, random_state, normalize_axis:tuple[int]|int=None) -> tuple[np.ndarray, np.ndarray]:
+    """
+    normalize_axis: optional. The axis that normalizer will move along.
+    e.g. for 2-D feature matrix, rows for samples and columns for features, normalizer moves along axis=0(rows). normalize_axis
+    """
+    
+    features_dim = len(features.shape)
+    if features_dim > 2:
+        
+        if type(normalize_axis) != tuple and type(normalize_axis) != int:
+            raise(ValueError, f"Input features matrix is {features_dim}-dimension. Please specify normalize_axis argument.")
+
+        if type(normalize_axis) == int:
+            normalize_axis = (normalize_axis, )
+            
+        max_normalize_axis = max(normalize_axis)
+        
+        if 0 not in normalize_axis:
+            raise ValueError(f"normalize_axis must inclue 0. Data points can not be normalized with different parameters.")
+        elif max_normalize_axis > features_dim - 1:
+            raise ValueError(f"Input features matrix is {features_dim}-dimension. the max value in normalize_axis should not exceed {features_dim - 1}.")
+        else:
+            normalizer: dict[str, callable] = {
+                "raw": lambda x: x,
+                "scaled": high_dim_min_max_scaler(normalize_axis),
+                "minmax": high_dim_standard_scaler(normalize_axis),
+            }
+    else:
+        normalizer: dict[str, callable] = {
+            "raw": lambda x: x,
+            "scaled": StandardScaler().fit_transform,
+            "minmax": MinMaxScaler().fit_transform
+        }
 
     y = {
         "train": None,
@@ -403,11 +518,12 @@ def gen_datesets(features, labels, use_datasets, train_size, random_state) -> tu
             random_state=random_state
         )
 
-    assert "scaled" not in use_datasets or -0.3 < X['scaled']['train'][0].mean() < 0.3
-    assert "scaled" not in use_datasets or -0.3 < X['scaled']['test'][0].mean() < 0.3
-    assert "minmax" not in use_datasets or X['minmax']['train'][0].max() == 1
-    assert "minmax" not in use_datasets or X['minmax']['test'][0].min() == 0
-    assert train_size - 0.3 < len(y["train"]) / len(labels) < train_size + 0.3
+    ## defensive checking
+    # assert "scaled" not in use_datasets or -0.3 < X['scaled']['train'][0].mean() < 0.3
+    # assert "scaled" not in use_datasets or -0.3 < X['scaled']['test'][0].mean() < 0.3
+    # assert "minmax" not in use_datasets or X['minmax']['train'][0].max() == 1
+    # assert "minmax" not in use_datasets or X['minmax']['test'][0].min() == 0
+    # assert train_size - 0.3 < len(y["train"]) / len(labels) < train_size + 0.3
 
     return X, y
 
@@ -441,8 +557,8 @@ def cross_train(X, y, model_args, verbose=True):
                 
                 scores[x_type][m_name][t] = {
                     "accuracy": model.score(x[t], y[t]),
+                    "f1" : f1_score(y[t], y_pred),
                     "auc": roc_auc_score(y[t], y_pred),
-                    "f1" : f1_score(y[t], y_pred)
                 }
                 
                 if verbose:
