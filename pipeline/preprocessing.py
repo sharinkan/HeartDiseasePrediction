@@ -246,7 +246,7 @@ def feature_bandpower_struct(sample_rate : int=4000, interval :int =200, overlap
         for win_start, win_end in freq_windows:
             features.append(bandpower_func(win_start, win_end))
 
-        return np.array(features)
+        return features
 
     return feature_bandpower
 

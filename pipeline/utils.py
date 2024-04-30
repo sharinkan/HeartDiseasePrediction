@@ -4,7 +4,7 @@
 import numpy as np
 import random
 import librosa
-from typing import Iterable, Tuple, Literal, Generator, Dict, Union
+from typing import Iterable, Tuple, Literal, Generator, Dict
 try:
     from .dataloader import PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramAugmentationTSV
 except ImportError:
@@ -132,16 +132,11 @@ def energy_band_augmentation_random_win(
     return copy
 
 
-
-
-from time import time
 def compose_feature_label(
     file : str, 
     lookup_table : PhonocardiogramByIDDatasetOnlyResult, 
     feature_fns : callable,
     transform : callable,
-    dim : Literal[1,2] = 1,
-    is_np : bool = True, # only optional at 2D array -> force to numpy array
 ) -> Tuple[np.ndarray, int]:
     """concatenate features in one array
 
@@ -157,23 +152,11 @@ def compose_feature_label(
     
     # assume feature_fn will return 1xN array
     audio_ary, _ = librosa.load(file)
-    
     audio_ary = transform(audio_ary)
     features = np.array([])
 
-    if dim == 1:
-        for feature_fn in feature_fns:
-            features = np.concatenate( (features, feature_fn(audio_ary)), axis=0)
-    if dim == 2:
-        
-        features = [feature_fn(audio_ary) for feature_fn in feature_fns]
-        # features = []
-        # for feature_fn in feature_fns:
-        #     s = time()
-        #     features.append(feature_fn(audio_ary))
-        #     print("feat ", feature_fn.__qualname__, time() - s)
-
-        features = np.array(features, dtype=object) if is_np else features
+    for feature_fn in feature_fns:
+        features = np.concatenate( (features, feature_fn(audio_ary)), axis=0)
 
     return features, int(lookup_table[file])
 

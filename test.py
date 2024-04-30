@@ -59,38 +59,12 @@ def ensemble_methods(models, X, option : Literal["hard", "soft"] = "hard"):
 
 
 if __name__ == "__main__":
-    # model = SVC()
-    # X = np.random.random((1000,10))
-    # Y = np.random.randint(0,2,size=(1000))
+    model = SVC()
+    X = np.random.random((1000,10))
+    Y = np.random.randint(0,2,size=(1000))
 
-    # for i in models:
-    #     i.fit(X,Y)
+    for i in models:
+        i.fit(X,Y)
     
-    # print(ensemble_methods(models, X, "hard"))
-
-
-
-    from functools import cache
-
-    from time import sleep,time
-
-
-    class T():
-        def __init__(self) -> None:
-            ...
-
-        @cache
-        def caching_test(self, x):
-            print(x)
-            sleep(x)
-            return x
-        
-
-    z = T()
-
-    start = time()
-    z.caching_test(2)
-    z.caching_test(2)
-    end = time()
-
-    print(end - start )
+    print(ensemble_methods(models, X, "hard"))
+    
