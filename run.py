@@ -62,24 +62,6 @@ if __name__ == "__main__":
     import re, random
 
     file = Path(".") / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
-    # Training On CSV data
-    # original_data = pd.read_csv(str(file  / "training_data.csv"))
-    
-    # model_df = data_wrangling(original_data)
-    # X_CSV = one_hot_encoding(model_df, [
-    #     'Murmur', 
-    #     'Systolic murmur quality', 
-    #     'Systolic murmur pitch',
-    #     'Systolic murmur grading', 
-    #     'Systolic murmur shape', 
-    #     'Systolic murmur timing',
-    #     'Diastolic murmur quality', 
-    #     'Diastolic murmur pitch',
-    #     'Diastolic murmur grading', 
-    #     'Diastolic murmur shape', 
-    #     'Diastolic murmur timing',
-    # ])
-    # y_CSV = model_df['Outcome']
 
     # Training on actual patient audio files
     segmentation_table = PhonocardiogramAugmentationTSV(file / "training_data")
