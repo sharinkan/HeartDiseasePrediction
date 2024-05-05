@@ -1,11 +1,10 @@
 from pipeline.dl_models import *
 from pipeline.preprocessing import * # fix later
-from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramAugmentationTSV
-from pipeline.utils import compose_feature_label, audio_random_windowing, energy_band_augmentation_random_win, ensemble_methods, ensemble_methods_mixture
+from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult
+from pipeline.utils import compose_feature_label, audio_random_windowing
 
 from tqdm import tqdm
 import numpy as np
-from typing import Dict
 
 
 if __name__ == "__main__":
@@ -14,7 +13,6 @@ if __name__ == "__main__":
     import torch
     import torch.nn as nn
     import torch.optim as optim
-    import re, random
 
     file = Path(".") / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -37,7 +35,8 @@ if __name__ == "__main__":
         # feature_melspectrogram,
         feature_bandpower_struct(4000,200,0.7),
         # NMF, # found -> takes around 0.1s per file
-    ]    
+    ]
+    print("Features :", [f.__qualname__ for f in features_fn])
     
     def dset_trans(f : str): # each takes ~0.1s
 
@@ -59,9 +58,14 @@ if __name__ == "__main__":
         feat_sizes = [feat_matx.shape[0] for feat_matx in feature_space]
         mlps = [
             MLP([
-                feat_size, 
+                feat_size,
                 64,
-                64 * 2, 
+                64 * 2,
+                64 * 2 * 2,
+                64 * 2 * 2 * 2,
+                64 * 2 * 2,
+                64 * 2,
+                64,
                 1,] , torch.nn.ReLU)
             for feat_size in feat_sizes
         ]
@@ -72,7 +76,6 @@ if __name__ == "__main__":
     feature_based_mlps, example_feature = create_MLPs()
     combinedMLP = CombinedMLP(feature_based_mlps)
     
-    print([f.__qualname__ for f in features_fn])
     dset = PhonocardiogramAudioDataset(
         file / "clear_training_data",
         ".wav",
@@ -95,12 +98,10 @@ if __name__ == "__main__":
     
     
     criterion = nn.BCELoss()
-    optimizer = optim.Adam(combinedMLP.parameters(), lr=0.00001)
+    optimizer = optim.Adam(combinedMLP.parameters(), lr=1e-4)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
 
-    num_epoch = 5
-
-
-    from time import time
+    num_epoch = 200
 
     combinedMLP.train()
     for epoch in range(num_epoch):
@@ -110,44 +111,36 @@ if __name__ == "__main__":
             y = y.to(device)
 
             optimizer.zero_grad()
-            
             out = combinedMLP(X)
-
-            # LATER
             loss = criterion(out.squeeze(), y.float())
 
             loss.backward()
             optimizer.step()
 
-            
-
+        scheduler.step()
         print(f'Epoch [{epoch+1}/{num_epoch}], Loss: {loss.item():.4f}')
         
-    # Testing
-    combinedMLP.eval()
-    acc = []
+
     
+    # Testing
+    print("Start Testing")
+    combinedMLP.eval()
     with torch.no_grad():
-        for Xtest, ytest in tqdm(train_loader):
-            Xtest = [x_sub.to(device) for x_sub in Xtest]
-            ytest = y.to(device)
+        labeled_loaders = {
+            "Training" : train_loader, # due augmentation, it's not exactly the training data
+            "Testing" : test_loader
+        }
+
+        for mode, loader in labeled_loaders.items():
+            acc = []
+            for Xtest, ytest in tqdm(train_loader):
+                Xtest = [x_sub.to(device) for x_sub in Xtest]
+                ytest = ytest.to(device)
 
 
-            out = combinedMLP(Xtest)
-            print(out, ytest)
-            pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
-            accu = (pred == ytest).float().mean().item()
-            acc.append(accu)
-        print(f'Training set Accuracy: {sum(acc)/len(acc):.4f}')
-        
-        for Xtest, ytest in tqdm(test_loader):
-            Xtest = [x_sub.to(device) for x_sub in Xtest]
-            ytest = y.to(device)
-
-
-            out = combinedMLP(Xtest)
-            pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
-            accu = (pred == ytest).float().mean().item()
-            acc.append(accu)
-        print(f'Testing Accuracy: {sum(acc)/len(acc):.4f}')
+                out = combinedMLP(Xtest)
+                pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
+                accu = (pred == ytest).float().mean().item()
+                acc.append(accu)
+            print(f'{mode} set Accuracy: {sum(acc)/len(acc):.4f}')
             
