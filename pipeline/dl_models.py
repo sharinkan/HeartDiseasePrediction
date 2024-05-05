@@ -3,7 +3,6 @@ import torch.nn as nn
 from typing import List, Union, Callable
 from itertools import zip_longest
 
-import numpy as np
 
 def pairwise(iterable): # [1,2,3,4,5] -> [(1,2), (2,3), (3,4),(4,5)]
     iterator = iter(iterable)

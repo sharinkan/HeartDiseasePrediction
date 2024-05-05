@@ -4,11 +4,11 @@
 import numpy as np
 import random
 import librosa
-from typing import Iterable, Tuple, Literal, Generator, Dict, Union
+from typing import Tuple, Literal, Generator, Dict
 try:
-    from .dataloader import PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramAugmentationTSV
+    from .dataloader import PhonocardiogramByIDDatasetOnlyResult
 except ImportError:
-    from dataloader import PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramAugmentationTSV
+    from dataloader import PhonocardiogramByIDDatasetOnlyResult
     
 
 def energy_band_augmentation(

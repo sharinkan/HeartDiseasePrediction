@@ -1,10 +1,11 @@
 """Main script to run training
 """
 
+# from pipeline.stats import view_cm, show_outcome_distrib
 from pipeline.models import models
 from pipeline.pipeline import one_dim_x_train, mixture_one_dim_x_train
-from pipeline.stats import view_cm, get_acc_auc_df, show_outcome_distrib
-from pipeline.preprocessing import * # fix later
+from pipeline.stats import get_acc_auc_df
+from pipeline.preprocessing import feature_mfcc, feature_bandpower_struct, NMF, remove_high_frequencies
 from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult, PhonocardiogramAugmentationTSV
 from tqdm import tqdm
 
