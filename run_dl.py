@@ -14,6 +14,8 @@ if __name__ == "__main__":
     import torch.nn as nn
     import torch.optim as optim
 
+    from torch.utils.tensorboard import SummaryWriter
+
     file = Path(".") / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -31,8 +33,8 @@ if __name__ == "__main__":
     # Feature functions
     features_fn = [
         feature_mfcc, 
-        # feature_chromagram, 
-        # feature_melspectrogram,
+        feature_chromagram, 
+        feature_melspectrogram,
         feature_bandpower_struct(4000,200,0.7),
         # NMF, # found -> takes around 0.1s per file
     ]
@@ -96,16 +98,19 @@ if __name__ == "__main__":
     # training
     combinedMLP.to(device)
     
+
+    writer = SummaryWriter("ign_runs/summary1")
+
     
     criterion = nn.BCELoss()
     optimizer = optim.Adam(combinedMLP.parameters(), lr=1e-4)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
-    num_epoch = 200
+    num_epoch = 20
 
     combinedMLP.train()
     for epoch in range(num_epoch):
-        for X,y in tqdm(train_loader):
+        for indx, (X,y) in enumerate(tqdm(train_loader)):
 
             X = [x_sub.to(device) for x_sub in X]
             y = y.to(device)
@@ -116,6 +121,10 @@ if __name__ == "__main__":
 
             loss.backward()
             optimizer.step()
+
+            acc = ((out.squeeze() > 0.5).float() == y).float().mean().item()
+            writer.add_scalar("training loss", loss.item(), epoch * len(train_loader) + indx)
+            writer.add_scalar("accuracy", acc, epoch * len(train_loader) + indx)
 
         scheduler.step()
         print(f'Epoch [{epoch+1}/{num_epoch}], Loss: {loss.item():.4f}')
