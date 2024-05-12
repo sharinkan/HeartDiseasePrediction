@@ -62,12 +62,6 @@ if __name__ == "__main__":
             MLP([
                 feat_size,
                 64,
-                64 * 2,
-                64 * 2 * 2,
-                64 * 2 * 2 * 2,
-                64 * 2 * 2,
-                64 * 2,
-                64,
                 1,] , torch.nn.ReLU)
             for feat_size in feat_sizes
         ]
@@ -92,39 +86,50 @@ if __name__ == "__main__":
     test_size = len(dset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(dset, [train_size, test_size])
     
-    train_loader = DataLoader(train_dataset, batch_size=64,shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=64,shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=1,shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=1,shuffle=False)
 
     # training
     combinedMLP.to(device)
     
-
-    writer = SummaryWriter("ign_runs/summary1")
+    from datetime import datetime
+    writer = SummaryWriter(f"ign_runs/summary{datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}")
 
     
     criterion = nn.BCELoss()
-    optimizer = optim.Adam(combinedMLP.parameters(), lr=1e-4)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
+    optimizer = optim.Adam(combinedMLP.parameters(), lr=1e-5)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
-    num_epoch = 20
+    num_epoch = 10
+
+    def log_gradients_in_model(model, logger, step):
+        # https://discuss.pytorch.org/t/logging-gradients-on-each-iteration/94256
+        for tag, value in model.named_parameters():
+            if value.grad is not None:
+                logger.add_histogram(tag + "/grad", value.grad.cpu(), step)
 
     combinedMLP.train()
     for epoch in range(num_epoch):
         for indx, (X,y) in enumerate(tqdm(train_loader)):
-
             X = [x_sub.to(device) for x_sub in X]
             y = y.to(device)
-
+            break
+            # Testing -> overfit test
+        for indx in tqdm(range(1000)):
             optimizer.zero_grad()
             out = combinedMLP(X)
-            loss = criterion(out.squeeze(), y.float())
+            loss = criterion(out.squeeze(dim=1), y.float())
 
             loss.backward()
             optimizer.step()
 
-            acc = ((out.squeeze() > 0.5).float() == y).float().mean().item()
-            writer.add_scalar("training loss", loss.item(), epoch * len(train_loader) + indx)
-            writer.add_scalar("accuracy", acc, epoch * len(train_loader) + indx)
+            acc = ((out.squeeze(dim=1) > 0.5).float() == y).float().mean().item()
+            # writer.add_scalar("training loss", loss.item(), epoch * len(train_loader) + indx)
+            # writer.add_scalar("accuracy", acc, epoch * len(train_loader) + indx)
+            writer.add_scalar("training loss", loss.item(), epoch * 1000 + indx)
+            writer.add_scalar("accuracy", acc, epoch * 1000 + indx)
+            log_gradients_in_model(combinedMLP, writer, epoch * 1000 + indx)
+
 
         scheduler.step()
         print(f'Epoch [{epoch+1}/{num_epoch}], Loss: {loss.item():.4f}')
@@ -142,7 +147,7 @@ if __name__ == "__main__":
 
         for mode, loader in labeled_loaders.items():
             acc = []
-            for Xtest, ytest in tqdm(train_loader):
+            for Xtest, ytest in tqdm(loader):
                 Xtest = [x_sub.to(device) for x_sub in Xtest]
                 ytest = ytest.to(device)
 
