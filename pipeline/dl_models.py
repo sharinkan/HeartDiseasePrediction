@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
-from typing import List, Union, Callable
+from torch.nn import functional as F
+
+from typing import List, Union, Callable, Literal
 from itertools import zip_longest
 
 
@@ -75,7 +77,72 @@ class CombinedMLP(nn.Module):
         for sub_model in self.MLPS:
             sub_model.to(*args, **kwargs)
         
+
+        
+
+
+# RNNs
+
+# https://github.com/ruohoruotsi/LSTM-Music-Genre-Classification/blob/master/lstm_genre_classifier_pytorch.py
+
+
+class RNN_BASE(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim=8, num_layers=2, layer_option : nn.RNNBase = None, stateful : bool = False):
+        super(RNN_BASE, self).__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+
+        self.rnn_layer_option = layer_option(self.input_dim, self.hidden_dim, self.num_layers, batch_first=True)
+
+        self.linear = nn.Linear(self.hidden_dim, output_dim)
+
+        self.hidden = None
+        self.stateful = stateful
+        self.hidden_matrices = -1 # RNN only need 1 for hidden, LSTM need 2 -> cell & hidden
+        self.batch_size = 0
+        self.device = None
+
+    def forward(self, input):
+        if not(self.batch_size):
+            self.batch_size = input.shape[0]
+
+        if self.stateful and hidden:
+            if self.hidden_matrices == 1:
+                self.hidden._detach()
+            else:
+                for hidden in self.hidden:
+                    hidden._detach()
+        else:
+            self._init_hidden(64, device=input.device)
+
+        out, self.hidden = self.rnn_layer_option(input, self.hidden)
+
+        out = self.linear(out)
+        out = F.sigmoid(out)
+        return out
     
+    # https://www.kaggle.com/code/purvasingh/text-generation-via-rnn-and-lstms-pytorch#kln-462
+    def _init_hidden(self, batch_size, device):
+        '''
+        Initialize the hidden state of an LSTM/GRU/RNN
+        :param batch_size: The batch_size of the hidden state
+        :return: hidden state of dims (n_layers, batch_size, hidden_dim)
+        '''
+        weights = next(self.parameters()).data
+        hidden = (weights.new(self.num_layers, batch_size).zero_(), ) * self.hidden_matrices
+        self.hidden = tuple([ h.to(device) for h in hidden]) if self.hidden_matrices > 1 else hidden[0].to(device)
+
+
+class RNN(RNN_BASE):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=2):
+        super(LSTM, self).__init__(input_dim, hidden_dim, output_dim, num_layers, layer_option=nn.RNN, stateful=False)
+        self.hidden_matrices = 1
+
+class LSTM(RNN_BASE):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=2):
+        super(LSTM, self).__init__(input_dim, hidden_dim, output_dim, num_layers, layer_option=nn.LSTM, stateful=False)
+        self.hidden_matrices = 2
         
 if __name__ == "__main__":
     

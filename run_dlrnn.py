@@ -1,12 +1,12 @@
 # from pipeline.utils import energy_band_augmentation_random_win
-from pipeline.dl_models import MLP, CombinedMLP
+from pipeline.dl_models import LSTM
 from pipeline.preprocessing import feature_mfcc, feature_bandpower_struct, remove_high_frequencies
 from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult
 from pipeline.utils import compose_feature_label, audio_random_windowing
 
 from tqdm import tqdm
 import numpy as np
-
+import librosa
 
 if __name__ == "__main__":
     from pathlib import Path
@@ -14,7 +14,6 @@ if __name__ == "__main__":
     import torch
     import torch.nn as nn
     import torch.optim as optim
-    import re, random
 
     file = Path(".") / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -23,8 +22,6 @@ if __name__ == "__main__":
     
     def augmentation(data :np.ndarray, sr : int=4000, window_length_hz :int =200, window_len_sec :float=5.) ->np.ndarray:
         x = data
-        # x = energy_band_augmentation_random_win(x, sr=sr, window_hz_length=window_length_hz)
-        # x = np.fft.ifft(x).real
         x = audio_random_windowing(x, window_len_sec)
         return x
 
@@ -40,42 +37,29 @@ if __name__ == "__main__":
     ]    
     
     def dset_trans(f : str): # each takes ~0.1s
-        result = compose_feature_label(
-            f,
-            lookup, 
-            features_fn,
-            lambda ary_data : remove_high_frequencies(augmentation(ary_data,4000,200,3.), sample_rate=4000,cutoff_frequency=450).real,
-            dim=2,
-            is_np=False
-        )
-
-        return result
+        # result = compose_feature_label(
+        #     f,
+        #     lookup, 
+        #     features_fn,
+        #     lambda ary_data : remove_high_frequencies(augmentation(ary_data,4000,200,3.), sample_rate=4000,cutoff_frequency=450).real,
+        #     dim=2,
+        #     is_np=False
+        # )
+        result, _ = librosa.load(f)
+        result = augmentation(result, sr= 4000, window_length_hz=200, window_len_sec= 3.)
+        result = remove_high_frequencies(result, sample_rate=4000,cutoff_frequency=450).real
+        return result, int(lookup[f])
     
 
 
 
+    model = LSTM(
+        input_dim=3*4000,
+        hidden_dim=64,
+        output_dim=1,
+        num_layers=2
+    )
 
-
-        
-    def create_MLPs():
-        rand_sample = np.random.random((4000 * 10,)) # 10 sec sample for 4000sr
-        feature_space = [f_fn(rand_sample) for f_fn in features_fn]
-        
-        feat_sizes = [feat_matx.shape[0] for feat_matx in feature_space]
-        mlps = [
-            MLP([
-                feat_size, 
-                64,
-                64 * 2, 
-                1,] , torch.nn.ReLU)
-            for feat_size in feat_sizes
-        ]
-        
-        return mlps, feature_space
-        
-        
-    feature_based_mlps, example_feature = create_MLPs()
-    combinedMLP = CombinedMLP(feature_based_mlps)
     
     print([f.__qualname__ for f in features_fn])
     dset = PhonocardiogramAudioDataset(
@@ -96,61 +80,53 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=64,shuffle=False)
 
     # training
-    combinedMLP.to(device)
+    model = model.to(device).float()
     
     
     criterion = nn.BCELoss()
-    optimizer = optim.Adam(combinedMLP.parameters(), lr=0.00001)
+    optimizer = optim.Adam(model.parameters(), lr=1e-5)
 
-    num_epoch = 5
+    num_epoch = 20
 
-
-    from time import time
-
-    combinedMLP.train()
+    model.train()
     for epoch in range(num_epoch):
         for X,y in tqdm(train_loader):
-
-            X = [x_sub.to(device) for x_sub in X]
-            y = y.to(device)
+            X = X.to(device).float()
+            y = y.to(device).float()
 
             optimizer.zero_grad()
             
-            out = combinedMLP(X)
-
-            # LATER
-            loss = criterion(out.squeeze(), y.float())
-
+            out = model(X) # data not stateful
+            loss = criterion(out.squeeze(), y)
             loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), 2.)
             optimizer.step()
-
-            
 
         print(f'Epoch [{epoch+1}/{num_epoch}], Loss: {loss.item():.4f}')
         
     # Testing
-    combinedMLP.eval()
-    acc = []
+    model.eval()
     
     with torch.no_grad():
+        acc = []
         for Xtest, ytest in tqdm(train_loader):
-            Xtest = [x_sub.to(device) for x_sub in Xtest]
-            ytest = y.to(device)
+            Xtest = Xtest.to(device).float()
+            ytest = ytest.to(device).float()
 
 
-            out = combinedMLP(Xtest)
-            print(out, ytest)
+            out, _ = model(Xtest)
             pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
+            
             accu = (pred == ytest).float().mean().item()
             acc.append(accu)
         print(f'Training set Accuracy: {sum(acc)/len(acc):.4f}')
-        
+        acc = []
         for Xtest, ytest in tqdm(test_loader):
-            Xtest = [x_sub.to(device) for x_sub in Xtest]
-            ytest = y.to(device)
+            Xtest = Xtest.to(device).float()
+            ytest = ytest.to(device).float()
 
 
-            out = combinedMLP(Xtest)
+            out, _ = model(Xtest)
             pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
             accu = (pred == ytest).float().mean().item()
             acc.append(accu)
