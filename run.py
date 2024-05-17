@@ -86,10 +86,10 @@ if __name__ == "__main__":
     import random
 
     features_fn = [
-        # feature_mfcc,
-        # feature_chromagram, 
-        # feature_melspectrogram,
-        # feature_bandpower_struct(4000,200,0.7),
+        feature_mfcc,
+        feature_chromagram, 
+        feature_melspectrogram,
+        feature_bandpower_struct(4000,200,0.7),
     ]
     # random.seed(None)
     # features_fn = [feature_melspectrogram]
@@ -98,14 +98,16 @@ if __name__ == "__main__":
     run_name = "cnn_4_features"
     file_path = f'assets/output/{date_time}_{run_name}_output.csv'
 
-    # with open(file_path, mode='a', newline='') as f:
-        # writer = csv.writer(f)
-        # writer.writerow(['accuracy_score', 'auc', 'f1', 'feature_combo'])
-    # for r in range(1, len(features_fn)+1):
-    for r in range(1, 2):
-        # for feature_combo in itertools.combinations(features_fn, r):
-        while True:
-    
+    with open(file_path, mode='a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['accuracy_score', 'auc', 'f1', 'feature_combo'])
+    for r in range(1, len(features_fn)+1):
+    # for r in range(1, 1):
+        print('start looping')
+        for feature_combo in itertools.combinations(features_fn, r):
+        # while True:
+            print('features:')
+            print(feature_combo)
             lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
             dset = PhonocardiogramAudioDataset(
                 file / "training_data",
@@ -143,12 +145,13 @@ if __name__ == "__main__":
             y = torch.cat(y, dim=0)
 
             # Training Pipeline
-            # pipeline(X,y)
-            acc, auc, f1 = cnn_train(X,y)
-            # r = [acc, auc, f1] + list(feature_combo)
-            # with open(file_path, mode='a', newline='') as f:
-                # writer = csv.writer(f)
-                # writer.writerow(r)
+            acc, auc, f1 = one_dim_x_train(X,y)
+            # acc, auc, f1 = cnn_train(X,y)
+            r = [acc, auc, f1] + list(feature_combo)
+            with open(file_path, mode='a', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(r)
+            break
 
     
     
