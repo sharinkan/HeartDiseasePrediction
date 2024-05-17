@@ -11,3 +11,5 @@ seaborn
 torchaudio
 pydub
 noisereduce
+opensmile
+audiofile
