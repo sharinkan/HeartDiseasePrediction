@@ -19,7 +19,7 @@ from sklearn.model_selection import train_test_split
 from pprint import pprint
 from sklearn.metrics import roc_auc_score, f1_score
 
-from typing import Tuple
+from typing import Tuple, Union
 
 def data_wrangling(df: pd.DataFrame) -> pd.DataFrame:
     """data wrangling on csv labels
@@ -465,7 +465,7 @@ def high_dim_standard_scaler(normalize_axis: tuple[int]):
     return standard_fit_transform
 
 
-def gen_datesets(features, labels, use_datasets, train_size, random_state, normalize_axis:tuple[int]|int=None) -> tuple[np.ndarray, np.ndarray]:
+def gen_datesets(features, labels, use_datasets, train_size, random_state, normalize_axis: Union[tuple[int],int]=None) -> tuple[np.ndarray, np.ndarray]:
     """
     normalize_axis: optional. The axis that normalizer will move along.
     e.g. for 2-D feature matrix, rows for samples and columns for features, normalizer moves along axis=0(rows). normalize_axis

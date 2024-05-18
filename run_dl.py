@@ -1,6 +1,5 @@
-# from pipeline.utils import energy_band_augmentation_random_win
-from pipeline.dl_models import MLP, CombinedMLP
-from pipeline.preprocessing import feature_mfcc, feature_bandpower_struct, remove_high_frequencies
+from pipeline.dl_models import *
+from pipeline.preprocessing import * # fix later
 from pipeline.dataloader import PhonocardiogramAudioDataset, PhonocardiogramByIDDatasetOnlyResult
 from pipeline.utils import compose_feature_label, audio_random_windowing
 
@@ -14,7 +13,8 @@ if __name__ == "__main__":
     import torch
     import torch.nn as nn
     import torch.optim as optim
-    import re, random
+
+    from torch.utils.tensorboard import SummaryWriter
 
     file = Path(".") / "assets" / "the-circor-digiscope-phonocardiogram-dataset-1.0.3"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -33,11 +33,12 @@ if __name__ == "__main__":
     # Feature functions
     features_fn = [
         feature_mfcc, 
-        # feature_chromagram, 
-        # feature_melspectrogram,
+        feature_chromagram, 
+        feature_melspectrogram,
         feature_bandpower_struct(4000,200,0.7),
         # NMF, # found -> takes around 0.1s per file
-    ]    
+    ]
+    print("Features :", [f.__qualname__ for f in features_fn])
     
     def dset_trans(f : str): # each takes ~0.1s
         result = compose_feature_label(
@@ -64,9 +65,8 @@ if __name__ == "__main__":
         feat_sizes = [feat_matx.shape[0] for feat_matx in feature_space]
         mlps = [
             MLP([
-                feat_size, 
+                feat_size,
                 64,
-                64 * 2, 
                 1,] , torch.nn.ReLU)
             for feat_size in feat_sizes
         ]
@@ -77,7 +77,6 @@ if __name__ == "__main__":
     feature_based_mlps, example_feature = create_MLPs()
     combinedMLP = CombinedMLP(feature_based_mlps)
     
-    print([f.__qualname__ for f in features_fn])
     dset = PhonocardiogramAudioDataset(
         file / "clear_training_data",
         ".wav",
@@ -92,67 +91,75 @@ if __name__ == "__main__":
     test_size = len(dset) - train_size
     train_dataset, test_dataset = torch.utils.data.random_split(dset, [train_size, test_size])
     
-    train_loader = DataLoader(train_dataset, batch_size=64,shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=64,shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=1,shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=1,shuffle=False)
 
     # training
     combinedMLP.to(device)
     
+    from datetime import datetime
+    writer = SummaryWriter(f"ign_runs/summary{datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}")
+
     
     criterion = nn.BCELoss()
-    optimizer = optim.Adam(combinedMLP.parameters(), lr=0.00001)
+    optimizer = optim.Adam(combinedMLP.parameters(), lr=1e-5)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
-    num_epoch = 5
+    num_epoch = 10
 
-
-    from time import time
+    def log_gradients_in_model(model, logger, step):
+        # https://discuss.pytorch.org/t/logging-gradients-on-each-iteration/94256
+        for tag, value in model.named_parameters():
+            if value.grad is not None:
+                logger.add_histogram(tag + "/grad", value.grad.cpu(), step)
 
     combinedMLP.train()
     for epoch in range(num_epoch):
-        for X,y in tqdm(train_loader):
-
+        for indx, (X,y) in enumerate(tqdm(train_loader)):
             X = [x_sub.to(device) for x_sub in X]
             y = y.to(device)
-
+            break
+            # Testing -> overfit test
+        for indx in tqdm(range(1000)):
             optimizer.zero_grad()
-            
             out = combinedMLP(X)
-
-            # LATER
-            loss = criterion(out.squeeze(), y.float())
+            loss = criterion(out.squeeze(dim=1), y.float())
 
             loss.backward()
             optimizer.step()
 
-            
+            acc = ((out.squeeze(dim=1) > 0.5).float() == y).float().mean().item()
+            # writer.add_scalar("training loss", loss.item(), epoch * len(train_loader) + indx)
+            # writer.add_scalar("accuracy", acc, epoch * len(train_loader) + indx)
+            writer.add_scalar("training loss", loss.item(), epoch * 1000 + indx)
+            writer.add_scalar("accuracy", acc, epoch * 1000 + indx)
+            log_gradients_in_model(combinedMLP, writer, epoch * 1000 + indx)
 
+
+        scheduler.step()
         print(f'Epoch [{epoch+1}/{num_epoch}], Loss: {loss.item():.4f}')
         
-    # Testing
-    combinedMLP.eval()
-    acc = []
+
     
+    # Testing
+    print("Start Testing")
+    combinedMLP.eval()
     with torch.no_grad():
-        for Xtest, ytest in tqdm(train_loader):
-            Xtest = [x_sub.to(device) for x_sub in Xtest]
-            ytest = y.to(device)
+        labeled_loaders = {
+            "Training" : train_loader, # due augmentation, it's not exactly the training data
+            "Testing" : test_loader
+        }
+
+        for mode, loader in labeled_loaders.items():
+            acc = []
+            for Xtest, ytest in tqdm(loader):
+                Xtest = [x_sub.to(device) for x_sub in Xtest]
+                ytest = ytest.to(device)
 
 
-            out = combinedMLP(Xtest)
-            print(out, ytest)
-            pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
-            accu = (pred == ytest).float().mean().item()
-            acc.append(accu)
-        print(f'Training set Accuracy: {sum(acc)/len(acc):.4f}')
-        
-        for Xtest, ytest in tqdm(test_loader):
-            Xtest = [x_sub.to(device) for x_sub in Xtest]
-            ytest = y.to(device)
-
-
-            out = combinedMLP(Xtest)
-            pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
-            accu = (pred == ytest).float().mean().item()
-            acc.append(accu)
-        print(f'Testing Accuracy: {sum(acc)/len(acc):.4f}')
+                out = combinedMLP(Xtest)
+                pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
+                accu = (pred == ytest).float().mean().item()
+                acc.append(accu)
+            print(f'{mode} set Accuracy: {sum(acc)/len(acc):.4f}')
             

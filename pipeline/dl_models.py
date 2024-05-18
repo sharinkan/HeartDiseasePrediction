@@ -41,7 +41,7 @@ class MLP(nn.Module):
 class CombinedMLP(nn.Module):
     def __init__(self, MLPS : List[MLP]):
         super(CombinedMLP, self).__init__()
-        self.MLPS = MLPS # each output shape is 1
+        self.MLPS = nn.ModuleList(MLPS) # each output shape is 1
         self.fc = nn.Linear(len(self.MLPS), 1)
         
         
@@ -58,26 +58,6 @@ class CombinedMLP(nn.Module):
         
         return X # grad is kept so backward will work
     
-    def parameters(self, *args, **kwargs):
-        return list(super(CombinedMLP, self).parameters(*args, **kwargs)) + [param for mlp in self.MLPS for param in mlp.parameters()]
-    
-    def train(self, *args, **kwargs):
-        super(CombinedMLP, self).train(*args, **kwargs)
-        for sub_model in self.MLPS:
-            sub_model.train(*args, **kwargs)
-            
-    def eval(self, *args, **kwargs):
-        super(CombinedMLP, self).eval(*args, **kwargs)
-        for sub_model in self.MLPS:
-            sub_model.eval(*args, **kwargs)
-
-
-    def to(self, *args, **kwargs):
-        super(CombinedMLP, self).to(*args, **kwargs)
-        for sub_model in self.MLPS:
-            sub_model.to(*args, **kwargs)
-        
-
         
 
 
@@ -146,19 +126,9 @@ class LSTM(RNN_BASE):
         
 if __name__ == "__main__":
     
-    x = torch.randn(2, 1, requires_grad=True)
-    print(x.grad)
-    # Perform some operations
-    y = x * 2
-    z = y.mean()
-
-    # Backpropagate through z
-    # z.backward()
-    ff = torch.cat([y,y],dim=1)
-    print(y.shape)
-    print(ff.shape)
-    ll = ff.mean()
-    ll.backward()
-
-    # Check gradient history of x
-    print(x.grad)
+    mlp1 = MLP([3,1])
+    mlp2 = MLP([5,1])
+    
+    test = CombinedMLP([mlp1, mlp2])
+    
+    print(list(test.parameters()))
