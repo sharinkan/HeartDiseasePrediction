@@ -51,15 +51,15 @@ class MultiScaleCNN(CNN2D):
         inputs = Input(shape=self.input_shape)
         
         # First scale: small filter
-        conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
+        conv1 = Conv2D(32, (5, 5), activation='relu', padding='same')(inputs)
         pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
 
         # Second scale: medium filter
-        conv2 = Conv2D(32, (5, 5), activation='relu', padding='same')(inputs)
+        conv2 = Conv2D(32, (9, 9), activation='relu', padding='same')(inputs)
         pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
 
         # Third scale: large filter
-        conv3 = Conv2D(32, (7, 7), activation='relu', padding='same')(inputs)
+        conv3 = Conv2D(32, (12, 12), activation='relu', padding='same')(inputs)
         pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
 
         # Concatenate the feature maps from different scales
