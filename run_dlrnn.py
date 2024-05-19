@@ -26,42 +26,27 @@ if __name__ == "__main__":
         return x
 
     lookup = PhonocardiogramByIDDatasetOnlyResult(str(file / "training_data.csv"))
+    AUDIO_WINDOW_LEN_SEC = 3.
+    SAMPLE_RATE = 4000
 
-    # Feature functions
-    features_fn = [
-        feature_mfcc, 
-        # feature_chromagram, 
-        # feature_melspectrogram,
-        feature_bandpower_struct(4000,200,0.7),
-        # NMF, # found -> takes around 0.1s per file
-    ]    
     
-    def dset_trans(f : str): # each takes ~0.1s
-        # result = compose_feature_label(
-        #     f,
-        #     lookup, 
-        #     features_fn,
-        #     lambda ary_data : remove_high_frequencies(augmentation(ary_data,4000,200,3.), sample_rate=4000,cutoff_frequency=450).real,
-        #     dim=2,
-        #     is_np=False
-        # )
+    def dset_trans(f : str):
         result, _ = librosa.load(f)
-        result = augmentation(result, sr= 4000, window_length_hz=200, window_len_sec= 3.)
-        result = remove_high_frequencies(result, sample_rate=4000,cutoff_frequency=450).real
+        result = augmentation(result, sr= SAMPLE_RATE, window_length_hz=200, window_len_sec=AUDIO_WINDOW_LEN_SEC)
+        result = remove_high_frequencies(result, sample_rate=SAMPLE_RATE,cutoff_frequency=450).real
         return result, int(lookup[f])
     
 
 
 
     model = LSTM(
-        input_dim=3*4000,
+        input_dim=int(AUDIO_WINDOW_LEN_SEC) * SAMPLE_RATE,
         hidden_dim=64,
         output_dim=1,
         num_layers=2
     )
 
     
-    print([f.__qualname__ for f in features_fn])
     dset = PhonocardiogramAudioDataset(
         file / "clear_training_data",
         ".wav",
@@ -86,7 +71,7 @@ if __name__ == "__main__":
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-5)
 
-    num_epoch = 20
+    num_epoch = 5
 
     model.train()
     for epoch in range(num_epoch):
@@ -103,32 +88,26 @@ if __name__ == "__main__":
             optimizer.step()
 
         print(f'Epoch [{epoch+1}/{num_epoch}], Loss: {loss.item():.4f}')
-        
+
     # Testing
+    print("Start Testing")
     model.eval()
-    
     with torch.no_grad():
-        acc = []
-        for Xtest, ytest in tqdm(train_loader):
-            Xtest = Xtest.to(device).float()
-            ytest = ytest.to(device).float()
+        labeled_loaders = {
+            "Training" : train_loader, # due augmentation, it's not exactly the training data
+            "Testing" : test_loader
+        }
+
+        for mode, loader in labeled_loaders.items():
+            acc = []
+            for Xtest, ytest in tqdm(loader):
+                Xtest = Xtest.to(device).float()
+                ytest = ytest.to(device).float()
 
 
-            out, _ = model(Xtest)
-            pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
-            
-            accu = (pred == ytest).float().mean().item()
-            acc.append(accu)
-        print(f'Training set Accuracy: {sum(acc)/len(acc):.4f}')
-        acc = []
-        for Xtest, ytest in tqdm(test_loader):
-            Xtest = Xtest.to(device).float()
-            ytest = ytest.to(device).float()
-
-
-            out, _ = model(Xtest)
-            pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
-            accu = (pred == ytest).float().mean().item()
-            acc.append(accu)
-        print(f'Testing Accuracy: {sum(acc)/len(acc):.4f}')
+                out = model(Xtest)
+                pred = (out.squeeze() > 0.5).float()  # Convert probabilities to binary predictions
+                accu = (pred == ytest).float().mean().item()
+                acc.append(accu)
+            print(f'{mode} set Accuracy: {sum(acc)/len(acc):.4f}')
             

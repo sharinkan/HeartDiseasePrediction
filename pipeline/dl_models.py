@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from typing import List, Union, Callable, Literal
+from typing import List, Union, Callable
 from itertools import zip_longest
 
 
@@ -17,24 +17,30 @@ class MLP(nn.Module):
     def __init__(self, struct : List[int] = None, activation_layers : Union[List[Callable],  Callable] = nn.ReLU):
         super(MLP, self).__init__()
         # https://stackoverflow.com/questions/62937388/pytorch-dynamic-amount-of-layers
-        self.fc_layers = nn.ModuleList([nn.Linear(prev_lay, cur_lay) for prev_lay, cur_lay in pairwise(struct)])
+
+        model_struct_layer = list(pairwise(struct))
+
+        self.fc_layers = nn.ModuleList([nn.Linear(prev_lay, cur_lay) for prev_lay, cur_lay in model_struct_layer])
+        self.bns = nn.ModuleList([nn.BatchNorm1d(cur_lay) for _, cur_lay in model_struct_layer[:-1]])
         self.activations = activation_layers
         
         if isinstance(self.activations, list):
             self.activations = nn.ModuleList([act() for act in self.activations])
         else:
             self.activations = nn.ModuleList([self.activations()] * (len(self.fc_layers) - 1))  # one activ after each layer
+
+        
             
         assert len(self.fc_layers) > len(self.activations), "more activation than fc layers"
         
             
     def forward(self, x):
-        for layer, acti in zip_longest(self.fc_layers, self.activations, fillvalue=None):
+        for layer, acti, bn in zip_longest(self.fc_layers, self.activations, self.bns, fillvalue=None):
             x = layer(x)
-            if acti is None:
-                continue
-            
-            x = acti(x)
+            if bn:
+                x = bn(x)
+            if acti:
+                x = acti(x)
         return x
     
     
@@ -67,21 +73,24 @@ class CombinedMLP(nn.Module):
 
 
 class RNN_BASE(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim=8, num_layers=2, layer_option : nn.RNNBase = None, stateful : bool = False):
+    def __init__(self, input_dim, hidden_dim, output_dim=8, num_layers=2, layer_option : nn.RNNBase = None, stateful : bool = False, hidden_matrices : int = -1):
         super(RNN_BASE, self).__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
 
         self.rnn_layer_option = layer_option(self.input_dim, self.hidden_dim, self.num_layers, batch_first=True)
+        self.layer_norm = nn.LayerNorm(self.hidden_dim)
 
         self.linear = nn.Linear(self.hidden_dim, output_dim)
 
         self.hidden = None
         self.stateful = stateful
-        self.hidden_matrices = -1 # RNN only need 1 for hidden, LSTM need 2 -> cell & hidden
+        self.hidden_matrices = hidden_matrices # RNN only need 1 for hidden, LSTM need 2 -> cell & hidden
         self.batch_size = 0
         self.device = None
+
+        
 
     def forward(self, input):
         if not(self.batch_size):
@@ -97,7 +106,7 @@ class RNN_BASE(nn.Module):
             self._init_hidden(64, device=input.device)
 
         out, self.hidden = self.rnn_layer_option(input, self.hidden)
-
+        self.layer_norm(out)
         out = self.linear(out)
         out = F.sigmoid(out)
         return out
@@ -116,13 +125,11 @@ class RNN_BASE(nn.Module):
 
 class RNN(RNN_BASE):
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers=2):
-        super(LSTM, self).__init__(input_dim, hidden_dim, output_dim, num_layers, layer_option=nn.RNN, stateful=False)
-        self.hidden_matrices = 1
+        super(RNN, self).__init__(input_dim, hidden_dim, output_dim, num_layers, layer_option=nn.RNN, stateful=False, hidden_matrices=1)
 
 class LSTM(RNN_BASE):
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers=2):
-        super(LSTM, self).__init__(input_dim, hidden_dim, output_dim, num_layers, layer_option=nn.LSTM, stateful=False)
-        self.hidden_matrices = 2
+        super(LSTM, self).__init__(input_dim, hidden_dim, output_dim, num_layers, layer_option=nn.LSTM, stateful=False, hidden_matrices=2)
         
 if __name__ == "__main__":
     
