@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
+
 from typing import List, Union, Callable
 from itertools import zip_longest
 
@@ -15,31 +17,37 @@ class MLP(nn.Module):
     def __init__(self, struct : List[int] = None, activation_layers : Union[List[Callable],  Callable] = nn.ReLU):
         super(MLP, self).__init__()
         # https://stackoverflow.com/questions/62937388/pytorch-dynamic-amount-of-layers
-        self.fc_layers = nn.ModuleList([nn.Linear(prev_lay, cur_lay) for prev_lay, cur_lay in pairwise(struct)])
+
+        model_struct_layer = list(pairwise(struct))
+
+        self.fc_layers = nn.ModuleList([nn.Linear(prev_lay, cur_lay) for prev_lay, cur_lay in model_struct_layer])
+        self.bns = nn.ModuleList([nn.BatchNorm1d(cur_lay) for _, cur_lay in model_struct_layer[:-1]])
         self.activations = activation_layers
         
         if isinstance(self.activations, list):
             self.activations = nn.ModuleList([act() for act in self.activations])
         else:
             self.activations = nn.ModuleList([self.activations()] * (len(self.fc_layers) - 1))  # one activ after each layer
+
+        
             
         assert len(self.fc_layers) > len(self.activations), "more activation than fc layers"
         
             
     def forward(self, x):
-        for layer, acti in zip_longest(self.fc_layers, self.activations, fillvalue=None):
+        for layer, acti, bn in zip_longest(self.fc_layers, self.activations, self.bns, fillvalue=None):
             x = layer(x)
-            if acti is None:
-                continue
-            
-            x = acti(x)
+            if bn:
+                x = bn(x)
+            if acti:
+                x = acti(x)
         return x
     
     
 class CombinedMLP(nn.Module):
     def __init__(self, MLPS : List[MLP]):
         super(CombinedMLP, self).__init__()
-        self.MLPS = MLPS # each output shape is 1
+        self.MLPS = nn.ModuleList(MLPS) # each output shape is 1
         self.fc = nn.Linear(len(self.MLPS), 1)
         
         
@@ -56,42 +64,78 @@ class CombinedMLP(nn.Module):
         
         return X # grad is kept so backward will work
     
-    def parameters(self, *args, **kwargs):
-        return list(super(CombinedMLP, self).parameters(*args, **kwargs)) + [param for mlp in self.MLPS for param in mlp.parameters()]
-    
-    def train(self, *args, **kwargs):
-        super(CombinedMLP, self).train(*args, **kwargs)
-        for sub_model in self.MLPS:
-            sub_model.train(*args, **kwargs)
-            
-    def eval(self, *args, **kwargs):
-        super(CombinedMLP, self).eval(*args, **kwargs)
-        for sub_model in self.MLPS:
-            sub_model.eval(*args, **kwargs)
-
-
-    def to(self, *args, **kwargs):
-        super(CombinedMLP, self).to(*args, **kwargs)
-        for sub_model in self.MLPS:
-            sub_model.to(*args, **kwargs)
         
+
+
+# RNNs
+
+# https://github.com/ruohoruotsi/LSTM-Music-Genre-Classification/blob/master/lstm_genre_classifier_pytorch.py
+
+
+class RNN_BASE(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim=8, num_layers=2, layer_option : nn.RNNBase = None, stateful : bool = False, hidden_matrices : int = -1):
+        super(RNN_BASE, self).__init__()
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+
+        self.rnn_layer_option = layer_option(self.input_dim, self.hidden_dim, self.num_layers, batch_first=True)
+        self.layer_norm = nn.LayerNorm(self.hidden_dim)
+
+        self.linear = nn.Linear(self.hidden_dim, output_dim)
+
+        self.hidden = None
+        self.stateful = stateful
+        self.hidden_matrices = hidden_matrices # RNN only need 1 for hidden, LSTM need 2 -> cell & hidden
+        self.batch_size = 0
+        self.device = None
+
+        
+
+    def forward(self, input):
+        if not(self.batch_size):
+            self.batch_size = input.shape[0]
+
+        if self.stateful and hidden:
+            if self.hidden_matrices == 1:
+                self.hidden._detach()
+            else:
+                for hidden in self.hidden:
+                    hidden._detach()
+        else:
+            self._init_hidden(64, device=input.device)
+
+        out, self.hidden = self.rnn_layer_option(input, self.hidden)
+        self.layer_norm(out)
+        out = self.linear(out)
+        out = F.sigmoid(out)
+        return out
     
+    # https://www.kaggle.com/code/purvasingh/text-generation-via-rnn-and-lstms-pytorch#kln-462
+    def _init_hidden(self, batch_size, device):
+        '''
+        Initialize the hidden state of an LSTM/GRU/RNN
+        :param batch_size: The batch_size of the hidden state
+        :return: hidden state of dims (n_layers, batch_size, hidden_dim)
+        '''
+        weights = next(self.parameters()).data
+        hidden = (weights.new(self.num_layers, batch_size).zero_(), ) * self.hidden_matrices
+        self.hidden = tuple([ h.to(device) for h in hidden]) if self.hidden_matrices > 1 else hidden[0].to(device)
+
+
+class RNN(RNN_BASE):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=2):
+        super(RNN, self).__init__(input_dim, hidden_dim, output_dim, num_layers, layer_option=nn.RNN, stateful=False, hidden_matrices=1)
+
+class LSTM(RNN_BASE):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=2):
+        super(LSTM, self).__init__(input_dim, hidden_dim, output_dim, num_layers, layer_option=nn.LSTM, stateful=False, hidden_matrices=2)
         
 if __name__ == "__main__":
     
-    x = torch.randn(2, 1, requires_grad=True)
-    print(x.grad)
-    # Perform some operations
-    y = x * 2
-    z = y.mean()
-
-    # Backpropagate through z
-    # z.backward()
-    ff = torch.cat([y,y],dim=1)
-    print(y.shape)
-    print(ff.shape)
-    ll = ff.mean()
-    ll.backward()
-
-    # Check gradient history of x
-    print(x.grad)
+    mlp1 = MLP([3,1])
+    mlp2 = MLP([5,1])
+    
+    test = CombinedMLP([mlp1, mlp2])
+    
+    print(list(test.parameters()))
