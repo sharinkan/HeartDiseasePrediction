@@ -35,7 +35,10 @@ class MLP(nn.Module):
         
             
     def forward(self, x):
-        for layer, acti, bn in zip_longest(self.fc_layers, self.activations, self.bns, fillvalue=None):
+        for layer, acti, bn in zip_longest(self.fc_layers, 
+                                                    self.activations, 
+                                                    self.bns, 
+                                                    fillvalue=None):
             x = layer(x)
             if bn:
                 x = bn(x)
@@ -63,15 +66,9 @@ class CombinedMLP(nn.Module):
         X = torch.sigmoid(X)
         
         return X # grad is kept so backward will work
-    
-        
-
 
 # RNNs
-
 # https://github.com/ruohoruotsi/LSTM-Music-Genre-Classification/blob/master/lstm_genre_classifier_pytorch.py
-
-
 class RNN_BASE(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim=8, num_layers=2, layer_option : nn.RNNBase = None, stateful : bool = False, hidden_matrices : int = -1):
         super(RNN_BASE, self).__init__()
@@ -82,7 +79,14 @@ class RNN_BASE(nn.Module):
         self.rnn_layer_option = layer_option(self.input_dim, self.hidden_dim, self.num_layers, batch_first=True)
         self.layer_norm = nn.LayerNorm(self.hidden_dim)
 
-        self.linear = nn.Linear(self.hidden_dim, output_dim)
+
+        self.linear1 = nn.Linear(self.hidden_dim, self.hidden_dim // 2)
+        self.layer_norm1 = nn.LayerNorm(self.hidden_dim // 2)
+        self.linear2 = nn.Linear(self.hidden_dim // 2, self.hidden_dim // 4)
+        self.layer_norm2 = nn.LayerNorm(self.hidden_dim // 4)
+        self.linear3 = nn.Linear(self.hidden_dim // 4, self.hidden_dim // 8)
+        self.layer_norm3 = nn.LayerNorm(self.hidden_dim // 8)
+        self.linear4 = nn.Linear(self.hidden_dim // 8, output_dim)
 
         self.hidden = None
         self.stateful = stateful
@@ -103,11 +107,14 @@ class RNN_BASE(nn.Module):
                 for hidden in self.hidden:
                     hidden._detach()
         else:
-            self._init_hidden(64, device=input.device)
+            self._init_hidden(self.batch_size, device=input.device)
 
         out, self.hidden = self.rnn_layer_option(input, self.hidden)
-        self.layer_norm(out)
-        out = self.linear(out)
+        out = self.layer_norm(out)
+        for linear, norm in zip([self.linear1, self.linear2, self.linear3], [self.layer_norm1, self.layer_norm2, self.layer_norm3]):
+            out = norm(linear(out))
+            
+        out = self.linear4(out)
         out = F.sigmoid(out)
         return out
     
@@ -119,7 +126,7 @@ class RNN_BASE(nn.Module):
         :return: hidden state of dims (n_layers, batch_size, hidden_dim)
         '''
         weights = next(self.parameters()).data
-        hidden = (weights.new(self.num_layers, batch_size).zero_(), ) * self.hidden_matrices
+        hidden = (weights.new(self.num_layers, self.hidden_dim).zero_(), ) * self.hidden_matrices
         self.hidden = tuple([ h.to(device) for h in hidden]) if self.hidden_matrices > 1 else hidden[0].to(device)
 
 
