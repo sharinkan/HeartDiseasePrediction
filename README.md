@@ -15,12 +15,22 @@ In the field of healthcare, the stethoscope has been an indispensable tool for d
 
 # Methods
 
-- Classical ML models such as KNN and SVM 
-- Ensemble methods (voting)
-- Mixture model with different features sets
-- (Currently) Deep Learning models -> (CNN, MLP, combined MLP)
+Machine learning models
+ - Classical ML models such as KNN and SVM 
+ - Ensemble methods (voting)
+ - Mixture model with different feature sets
+   
+Deep learning models
+ - 1D-CNN
+ - MLP with Concatenated Feature
+ - CNN with Concatenated Feature
+ - CNN on 2D-Mel-Spectrogram Feature
+ - Conv-RNN
+ - Concatenated Multiple MLP
+ - RNN / LSTM
 
-# Results Updated by 06/05/2024
+
+# Results (DL) Updated by 06/05/2024
 | Model             | Features                                                 | Accuracy |
 |-------------------|----------------------------------------------------------|----------|
 | Single MLP        | Chromagram + 1D Mel-Spec + MFCC + Opensmile + CSV + Time Series | 66.46    |
